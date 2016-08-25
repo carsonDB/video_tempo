@@ -1,0 +1,11 @@
+{
+	"data_dir": "~/dataset/ucf11",
+	// generate a list of data: path + label
+	"lst_path": "./ucf11.lst",
+	// split above dataset
+	"splits": {
+		"~/dataset/train_lst": 1,
+		"~/dataset/test_lst": 0
+	},
+	"shuffle": true
+}
