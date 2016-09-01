@@ -49,22 +49,25 @@ def eval_once(saver, summary_writer, top_k_op, summary_op,
         #                                      start=True))
 
         # Start the queue runners.
-        # tf.train.start_queue_runners(sess=sess)
+        tf.train.start_queue_runners(sess=sess)
 
-        num_iter = int(math.ceil(num_examples / batch_size))
+        num_iter = int(math.ceil(1.0*num_examples / batch_size))
         true_count = 0  # Counts the number of correct predictions.
         total_sample_count = num_iter * batch_size
         step = 0
-        #debug
-        # print sess.run([logits])
+        print('Total steps: %d' % num_iter)
         while step < num_iter and not coord.should_stop():
             predictions = sess.run([top_k_op])
             # print predictions
             true_count += np.sum(predictions)
+
+            precision = 1.0*true_count / total_sample_count
+            print('step: %d, precision %f' % (step, precision))
+
             step += 1
 
         # Compute precision @ 1.
-        precision = true_count / total_sample_count
+        precision = 1.0*true_count / total_sample_count
         print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
 
         summary = tf.Summary()
@@ -92,7 +95,6 @@ def evaluate(nn):
         # Build a Graph that computes the logits predictions from the
         # inference model.
         logits = nn.inference(inputs)
-
         # Calculate predictions.
         top_k_op = tf.nn.in_top_k(logits, labels, 1)
 

@@ -71,17 +71,11 @@ def train(total_loss, global_step):
     Returns:
         train_op: op for training.
     """
-    batch_size = FLAGS['batch_size']
-    num_examples_per_epoch = FLAGS['num_examples_per_epoch']
-    num_epochs_per_decay = FLAGS['num_epochs_per_decay']
+    decay_steps = FLAGS['num_steps_per_decay']
     initial_learning_rate = FLAGS['initial_learning_rate']
-    learning_rate_decay_factor = FLAGS['learning_rate_decay_factor']
+    learning_rate_decay_factor = FLAGS['decay_factor']
     moving_average_decay = FLAGS['moving_average_decay']
-
-    # Variables that affect learning rate.
-    num_batches_per_epoch = (num_examples_per_epoch
-                             / batch_size)
-    decay_steps = int(num_batches_per_epoch * num_epochs_per_decay)
+    momentum = FLAGS['momentum']
 
     # Decay the learning rate exponentially based on the number of steps.
     lr = tf.train.exponential_decay(initial_learning_rate,
@@ -96,21 +90,21 @@ def train(total_loss, global_step):
 
     # Compute gradients.
     with tf.control_dependencies([loss_averages_op]):
-        opt = tf.train.GradientDescentOptimizer(lr)
+        opt = tf.train.MomentumOptimizer(lr, momentum)
         grads = opt.compute_gradients(total_loss)
 
     # Apply gradients.
     apply_gradient_op = opt.apply_gradients(grads,
                                             global_step=global_step)
 
-    # Add histograms for trainable variables.
-    for var in tf.trainable_variables():
-        tf.histogram_summary(var.op.name, var)
+    # # Add histograms for trainable variables.
+    # for var in tf.trainable_variables():
+    #     tf.histogram_summary(var.op.name, var)
 
-    # Add histograms for gradients.
-    for grad, var in grads:
-        if grad is not None:
-            tf.histogram_summary(var.op.name + '/gradients', grad)
+    # # Add histograms for gradients.
+    # for grad, var in grads:
+    #     if grad is not None:
+    #         tf.histogram_summary(var.op.name + '/gradients', grad)
 
     # Track the moving averages of all trainable variables.
     variable_averages = tf.train.ExponentialMovingAverage(

@@ -33,8 +33,8 @@ def _activation_summary(x):
     # Remove 'tower_[0-9]/' from the name in case this is a multi-GPU training
     # session. This helps the clarity of presentation on tensorboard.
     tensor_name = re.sub('%s_[0-9]*/' % TOWER_NAME, '', x.op.name)
-    tf.histogram_summary(tensor_name + '/activations', x)
-    tf.scalar_summary(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
+    # tf.histogram_summary(tensor_name + '/activations', x)
+    # tf.scalar_summary(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
 
 
 def _variable_on_cpu(name, shape, initializer, trainable=True):
@@ -70,13 +70,28 @@ def _variable_with_weight_decay(name, shape, stddev, wd, trainable=True):
     Returns:
       Variable Tensor
     """
+
     var = _variable_on_cpu(
         name,
         shape,
         tf.truncated_normal_initializer(stddev=stddev),
         trainable=trainable)
-    if wd is not None:
-        weight_decay = tf.mul(tf.nn.l2_loss(var), wd, name='weight_loss')
+    if wd is not None and FLAGS['mode'] == 'train':
+        # wd_var = wd
+        decay_factor = FLAGS['decay_factor']
+        num_steps_per_decay = FLAGS['num_steps_per_decay']
+        global_step = FLAGS['global_step']
+        # # Decay the learning rate exponentially based on the number of steps.
+        wd_var = _variable_on_cpu('weight_decay',
+                                  [],
+                                  initializer=tf.constant_initializer(wd),
+                                  trainable=False)
+        wd_var *= tf.pow(decay_factor,
+                         tf.cast(global_step / num_steps_per_decay,
+                                 tf.float32))
+        # tf.scalar_summary('weight_decay', wd_var)
+        # weight decay should decrease
+        weight_decay = tf.mul(tf.nn.l2_loss(var), wd_var, name='weight_loss')
         tf.add_to_collection('losses', weight_decay)
     return var
 
@@ -135,7 +150,7 @@ def inference(inputs, flags=None, output_id=None):
                                           trainable=trainable)
                 bias = tf.nn.bias_add(conv, biases)
                 ly_out = tf.nn.relu(bias, name=scope.name)
-                _activation_summary(ly_out)
+                # _activation_summary(ly_out)
 
         # conv_3d layer
         elif ly_type == 'conv3d':
@@ -148,15 +163,18 @@ def inference(inputs, flags=None, output_id=None):
                                                      stddev=ly['init_stddev'],
                                                      wd=ly['weight_decay'],
                                                      trainable=trainable)
+                # padding
+                ly_out = tf.pad(ly_out, [[0, 0]]+ly['padding']+[[0, 0]])
+
                 conv = tf.nn.conv3d(ly_out, kernel,
                                     strides=ly['strides'],
-                                    padding=ly['padding'])
+                                    padding='VALID')
                 biases = _variable_on_cpu('biases', [k_shape[-1]],
                                           tf.constant_initializer(0.0),
                                           trainable=trainable)
                 bias = tf.nn.bias_add(conv, biases)
                 ly_out = tf.nn.relu(bias, name=scope.name)
-                _activation_summary(ly_out)
+                # _activation_summary(ly_out)
 
         # max_pool_2d layer
         elif ly_type == 'max_pool2d':
@@ -192,11 +210,11 @@ def inference(inputs, flags=None, output_id=None):
                                                       wd=ly['weight_decay'],
                                                       trainable=trainable)
                 biases = _variable_on_cpu('biases', [dim1],
-                                          tf.constant_initializer(0.1),
+                                          tf.constant_initializer(0.0),
                                           trainable=trainable)
                 ly_out = tf.nn.relu(tf.matmul(reshape, weights) + biases,
                                     name=scope.name)
-                _activation_summary(ly_out)
+                # _activation_summary(ly_out)
         else:
             raise ValueError('no such layer: %s' % ly_type)
 
@@ -211,15 +229,15 @@ def inference(inputs, flags=None, output_id=None):
         weights = _variable_with_weight_decay('weights',
                                               [last_dim, num_class],
                                               stddev=0.01,
-                                              wd=0.0,
+                                              wd=0.05,
                                               trainable=trainable)
 
         biases = _variable_on_cpu('biases', [num_class],
-                                  tf.constant_initializer(0.1),
+                                  tf.constant_initializer(0.0),
                                   trainable=trainable)
         softmax_linear = tf.add(tf.matmul(ly_out, weights), biases,
                                 name=scope.name)
-        _activation_summary(softmax_linear)
+        # _activation_summary(softmax_linear)
     # don't softmax in advance
 
     return softmax_linear

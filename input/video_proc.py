@@ -41,7 +41,7 @@ def wrapper_per_clip(func):
                 seq_re.append(func(c, *args, **kwargs))
             return tf.pack(seq_re)
         else:
-            raise ValueError('video proc input shape illegal')
+            raise ValueError('video proc input shape illegal: rank==%d', rank)
 
     return inner
 
@@ -70,6 +70,15 @@ def central_crop(clip, *args, **kwargs):
 
 
 @wrapper_per_clip
+def test_crop(clip, re_size):
+    height, width = clip.get_shape()[1].value, clip.get_shape()[2].value
+    re_height, re_width = re_size
+    H_start, W_start = (height - re_height)/2, (width - re_width)/2
+    # central crop
+    return clip[:, H_start:H_start+re_height, W_start:W_start+re_width, :]
+
+
+@wrapper_per_clip
 def random_flip_left_right(clip, prob):
     # clip: [depth, height, width, in_channels]
     # return one clip
@@ -81,6 +90,12 @@ def random_flip_left_right(clip, prob):
                                  for image in image_lst],
                         lambda: image_lst)
     return tf.pack(image_lst)
+
+
+@wrapper_per_clip
+def subtract_mean(clip):
+    # subtract mean of whole clip
+    return clip - tf.reduce_mean(clip)
 
 
 @wrapper_per_clip
@@ -112,7 +127,7 @@ def model_process(clip, *args, **kwargs):
 
 def proc(example, sess):
     # preprocess actually based on frames
-    PREPROC = FLAGS['input']['preproc']
+    PREPROC = FLAGS['preproc']
 
     # input: a tensor or list of tensors
     # return: list of tensor
@@ -121,8 +136,14 @@ def proc(example, sess):
         if op['name'] == 'resize':
             example = resize_video(example, *op['size'])
 
+        elif op['name'] == 'subtract_mean':
+            example = subtract_mean(example)
+
         elif op['name'] == 'random_crop':
             example = random_crop(example, op['size'])
+
+        elif op['name'] == 'test_crop':
+            example = test_crop(example, op['size'])
 
         elif op['name'] == 'flip_left_right':
             example = random_flip_left_right(example, op['prob'])

@@ -28,9 +28,17 @@ def init_FLAGS(mode=None):
     parser = argparse.ArgumentParser(description='which json file'
                                      ' would you config')
     parser.add_argument('config_name', help='config file name')
-    args = parser.parse_args()    
+    parser.add_argument('--clear', dest='if_restart', action='store_const',
+                        const=True, default=False,
+                        help='if true, then restart training')
+    args = parser.parse_args()
 
     config = load(args.config_name, mode)
+
+    # mode
+    FLAGS['mode'] = mode
+    # if restart to train
+    FLAGS['if_restart'] = args.if_restart
 
     for k, v in config.iteritems():
         FLAGS[k] = v
@@ -73,7 +81,7 @@ def define_link(config):
     for k, v in config.iteritems():
         config[k] = unroll(v)
 
-
+# global variable cross modules
 FLAGS = {}
 
 

@@ -5,6 +5,7 @@
     // input info
     "input": {
         "type": "seq_video",
+        "read_from": "frame",
         "num_class": 11,
         "num_step": 10,
         // input will be resized to [height, width]
