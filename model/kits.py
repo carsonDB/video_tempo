@@ -58,7 +58,7 @@ def _add_loss_summaries(total_loss):
     return loss_averages_op
 
 
-def train(total_loss, global_step):
+def train(total_loss):
     """Train model graph.
 
     Create an optimizer and apply to all trainable variables. Add moving
@@ -71,6 +71,7 @@ def train(total_loss, global_step):
     Returns:
         train_op: op for training.
     """
+    global_step = FLAGS['global_step']
     decay_steps = FLAGS['num_steps_per_decay']
     initial_learning_rate = FLAGS['initial_learning_rate']
     learning_rate_decay_factor = FLAGS['decay_factor']

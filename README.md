@@ -29,26 +29,27 @@ PS: I've tested codes through UCF-11 dataset.
   * cnn pretrained model
 
 # Train
-  Call the **train.py** script with json filename(without **".json"**).
+  Call the `train.py` script with json filename(without `".json"`).
+  
+  ## train from scratch
 
+  e.g.
+  ```
+    python train.py C3D --clear
+  ```
+
+  ## fine-tuning
+  
   e.g.
   ```
     python train.py C3D
   ```
-# Evaluation (not yet)
-  Call the **eval.py** script with json filename(without **".json"**).
+ 
+
+# Evaluation (beta)
+  Call the `eval.py` script with json filename(without `".json"`).
   
   e.g.
   ```
     python eval.py C3D
   ```
-
-# After running
-  You may have to kill python processes manually. Otherwise,
-  they will become zombie processes at GPUs.
-
-  e.g.
-  ```
-    sudo killall -9 python
-  ```
-  But this way may will kill all python processess, be cautious.

@@ -25,9 +25,11 @@ local_FLAGS = {}
 def build_graph(nn, if_restart=False):
 
     # create a session and a coordinator
-    sess = tf.Session(config=tf.ConfigProto(
-        log_device_placement=True))
-    coord = tf.train.Coordinator()
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    FLAGS['sess'] = sess = tf.Session(config=config)
+    FLAGS['coord'] = coord = tf.train.Coordinator()
+
     if if_restart:
         global_step = tf.Variable(0, trainable=False)
     else:
@@ -44,67 +46,67 @@ def build_graph(nn, if_restart=False):
 
     # Build a Graph that computes the logits predictions from the
     # Get clips and labels.
-    inputs, labels, readers = input_agent.read(sess, coord)
+    inputs, labels = input_agent.read()
 
     # inference model.
     logits = nn.inference(inputs)
+
     # Calculate loss.
     loss = kits.loss(logits, labels)
-    # updates the model parameters.
 
-    train_op = kits.train(loss, global_step)
+    if not if_restart:
+        # determine variables to restore
+        variable_averages = tf.train.ExponentialMovingAverage(
+            FLAGS['moving_average_decay'])
+        variables_to_restore = variable_averages.variables_to_restore()
+        saver = tf.train.Saver(variables_to_restore)
+
+    # updates the model parameters.
+    train_op = kits.train(loss)
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.merge_all_summaries()
 
     # local_FLAGS
-    local_FLAGS['sess'] = sess
     local_FLAGS['coord'] = coord
+    local_FLAGS['saver'] = saver
     local_FLAGS['loss'] = loss
-    local_FLAGS['readers'] = readers
     local_FLAGS['train_op'] = train_op
     local_FLAGS['summary_op'] = summary_op
 
 
 def init_graph(if_restart=False):
 
-    sess = local_FLAGS['sess']
+    sess = FLAGS['sess']
+    saver = local_FLAGS['saver']
+    ckpt = local_FLAGS['ckpt']
+
+    # Build an initialization operation to run below.
+    init = tf.initialize_all_variables()
+    # Start running operations on the Graph.
+    sess.run(init)
 
     # train from scratch
     if if_restart:
         # Create a saver.
-        saver = tf.train.Saver(tf.all_variables())
-        # Build an initialization operation to run below.
-        init = tf.initialize_all_variables()
-        # Start running operations on the Graph.
-        sess.run(init)
+        local_FLAGS['saver'] = tf.train.Saver(tf.all_variables())
     else:
-        ckpt = local_FLAGS['ckpt']
-        # Restore the moving average version of the learned variables.
-        variable_averages = tf.train.ExponentialMovingAverage(
-            FLAGS['moving_average_decay'])
-        variables_to_restore = variable_averages.variables_to_restore()
-        saver = tf.train.Saver(variables_to_restore)
         saver.restore(sess, ckpt.model_checkpoint_path)
-
-    # update local_FLAGS
-    local_FLAGS['saver'] = saver
 
 
 def launch_graph():
 
-    sess = local_FLAGS['sess']
-    coord = local_FLAGS['coord']
+    sess = FLAGS['sess']
     train_op = local_FLAGS['train_op']
     loss = local_FLAGS['loss']
     summary_op = local_FLAGS['summary_op']
-    readers = local_FLAGS['readers']
     saver = local_FLAGS['saver']
+    global_step = FLAGS['global_step']
 
     summary_writer = tf.train.SummaryWriter(FLAGS['train_dir'], sess.graph)
     # Start the queue runners.
-    tf.train.start_queue_runners(sess=sess)
+    # tf.train.start_queue_runners(sess=sess)
 
-    for step in xrange(FLAGS['max_steps']):
+    for step in xrange(sess.run(global_step), FLAGS['max_steps']):
         start_time = time.time()
         _, loss_value = sess.run([train_op, loss])
         duration = time.time() - start_time
@@ -117,7 +119,7 @@ def launch_graph():
 
             format_str = ("%s: step %d, "
                           "loss = %.2f (%.1f examples/sec; %.3f "
-                          "sec/batch)")
+                          "sec/batch) ")
             print(format_str % (datetime.now(), step, loss_value,
                                 examples_per_sec, sec_per_batch))
 
@@ -131,10 +133,6 @@ def launch_graph():
                                            'model.ckpt')
             saver.save(sess, checkpoint_path, global_step=step)
 
-    coord.request_stop()
-    coord.join(readers)
-    print('training process ends normally')
-
 
 def main(argv=None):
     # unroll arguments of train
@@ -143,8 +141,13 @@ def main(argv=None):
     model_type = FLAGS['type']
     if_restart = FLAGS['if_restart']
 
-    if not tf.gfile.Exists(train_dir) or if_restart:
-        # restart to train
+    if not tf.gfile.Exists(train_dir):
+        # only start from scratch
+        tf.gfile.MakeDirs(train_dir)
+        if_restart = True
+
+    elif tf.gfile.Exists(train_dir) and if_restart:
+        # clear and restart
         tf.gfile.DeleteRecursively(train_dir)
         tf.gfile.MakeDirs(train_dir)
 
@@ -156,11 +159,11 @@ def main(argv=None):
             init_graph(if_restart)
             try:
                 launch_graph()
+                print('training process closed normally')
             except:
-                coord = local_FLAGS['coord']
-                coord.request_stop()
-                coord.join(local_FLAGS['readers'])
                 print('training process closed with error')
+            finally:
+                input_agent.close()
 
     else:
         raise ValueError('no such model: %s', model_type)

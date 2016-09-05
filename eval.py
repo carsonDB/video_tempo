@@ -85,8 +85,10 @@ def evaluate(nn):
     """Eval for one or a number of times."""
 
     with tf.Graph().as_default() as g:
-        # Start process managers.
-        sess = tf.Session()
+        # create a session and a coordinator
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        sess = tf.Session(config=config)
         coord = tf.train.Coordinator()
 
         # Build subgraph (reader and preprocesser).
@@ -95,6 +97,12 @@ def evaluate(nn):
         # Build a Graph that computes the logits predictions from the
         # inference model.
         logits = nn.inference(inputs)
+        
+        variable_averages = tf.train.ExponentialMovingAverage(
+            FLAGS['moving_average_decay'])
+        variables_to_restore = variable_averages.variables_to_restore()
+        import pdb; pdb.set_trace()  # breakpoint 2d88dce1 //
+
         # Calculate predictions.
         top_k_op = tf.nn.in_top_k(logits, labels, 1)
 
