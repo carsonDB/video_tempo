@@ -15,7 +15,7 @@ import tensorflow as tf
 from model import kits
 from input import input_agent
 from config import config_agent
-from config.config_agent import FLAGS
+from config.config_agent import FLAGS, VARS
 
 
 # module FLAGS
@@ -27,8 +27,8 @@ def build_graph(nn, if_restart=False):
     # create a session and a coordinator
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    FLAGS['sess'] = sess = tf.Session(config=config)
-    FLAGS['coord'] = coord = tf.train.Coordinator()
+    VARS['sess'] = sess = tf.Session(config=config)
+    VARS['coord'] = coord = tf.train.Coordinator()
 
     if if_restart:
         global_step = tf.Variable(0, trainable=False)
@@ -42,7 +42,7 @@ def build_graph(nn, if_restart=False):
                           .split('/')[-1].split('-')[-1])
         global_step = tf.Variable(global_step, trainable=False)
     # update FLAGS
-    FLAGS['global_step'] = global_step
+    VARS['global_step'] = global_step
 
     # Build a Graph that computes the logits predictions from the
     # Get clips and labels.
@@ -76,7 +76,7 @@ def build_graph(nn, if_restart=False):
 
 def init_graph(if_restart=False):
 
-    sess = FLAGS['sess']
+    sess = VARS['sess']
     saver = THIS['saver']
     ckpt = THIS['ckpt']
 
@@ -95,12 +95,12 @@ def init_graph(if_restart=False):
 
 def launch_graph():
 
-    sess = FLAGS['sess']
+    sess = VARS['sess']
     train_op = THIS['train_op']
     loss = THIS['loss']
     summary_op = THIS['summary_op']
     saver = THIS['saver']
-    global_step = FLAGS['global_step']
+    global_step = VARS['global_step']
 
     summary_writer = tf.train.SummaryWriter(FLAGS['train_dir'], sess.graph)
     # Start the queue runners.
