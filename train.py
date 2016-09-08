@@ -19,7 +19,7 @@ from config.config_agent import FLAGS
 
 
 # module FLAGS
-local_FLAGS = {}
+THIS = {}
 
 
 def build_graph(nn, if_restart=False):
@@ -35,7 +35,7 @@ def build_graph(nn, if_restart=False):
     else:
         with sess:
             ckpt = tf.train.get_checkpoint_state(FLAGS['checkpoint_dir'])
-            local_FLAGS['ckpt'] = ckpt
+            THIS['ckpt'] = ckpt
         if not (ckpt and ckpt.model_checkpoint_path):
             raise ValueError('No checkpoint file found')
         global_step = int(ckpt.model_checkpoint_path
@@ -66,19 +66,19 @@ def build_graph(nn, if_restart=False):
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.merge_all_summaries()
 
-    # local_FLAGS
-    local_FLAGS['coord'] = coord
-    local_FLAGS['saver'] = saver
-    local_FLAGS['loss'] = loss
-    local_FLAGS['train_op'] = train_op
-    local_FLAGS['summary_op'] = summary_op
+    # THIS
+    THIS['coord'] = coord
+    THIS['saver'] = saver
+    THIS['loss'] = loss
+    THIS['train_op'] = train_op
+    THIS['summary_op'] = summary_op
 
 
 def init_graph(if_restart=False):
 
     sess = FLAGS['sess']
-    saver = local_FLAGS['saver']
-    ckpt = local_FLAGS['ckpt']
+    saver = THIS['saver']
+    ckpt = THIS['ckpt']
 
     # Build an initialization operation to run below.
     init = tf.initialize_all_variables()
@@ -88,7 +88,7 @@ def init_graph(if_restart=False):
     # train from scratch
     if if_restart:
         # Create a saver.
-        local_FLAGS['saver'] = tf.train.Saver(tf.all_variables())
+        THIS['saver'] = tf.train.Saver(tf.all_variables())
     else:
         saver.restore(sess, ckpt.model_checkpoint_path)
 
@@ -96,10 +96,10 @@ def init_graph(if_restart=False):
 def launch_graph():
 
     sess = FLAGS['sess']
-    train_op = local_FLAGS['train_op']
-    loss = local_FLAGS['loss']
-    summary_op = local_FLAGS['summary_op']
-    saver = local_FLAGS['saver']
+    train_op = THIS['train_op']
+    loss = THIS['loss']
+    summary_op = THIS['summary_op']
+    saver = THIS['saver']
     global_step = FLAGS['global_step']
 
     summary_writer = tf.train.SummaryWriter(FLAGS['train_dir'], sess.graph)

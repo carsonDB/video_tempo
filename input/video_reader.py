@@ -4,6 +4,7 @@ Parts:
     * read_thread: fetch clips and enqueue
     * seq_read_thread: fetch sequence of clips and enqueue
     * build_start_nodes: create placeholders
+    * is_custom: if need to launch threads manually
     * threads_ready: launch threads if necessary
 types:
     * video: [depth, height, width, in_channels]
@@ -287,6 +288,10 @@ def build_start_nodes():
     # tf.image_summary('snapshot', raw_input_float32[0])
 
     return RAW_INPUT_FLOAT32, LABEL_INPUT
+
+
+# if need to launch threads manually
+is_custom = True
 
 
 def threads_ready(sess, enqueue_op, coord):

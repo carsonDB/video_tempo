@@ -10,7 +10,7 @@ import re
 import tensorflow as tf
 
 # import local file
-from config.config_agent import FLAGS
+from config.config_agent import FLAGS, VARS
 
 
 # If a model is trained with multiple GPUs, prefix all Op names with tower_name
@@ -80,8 +80,8 @@ def _variable_with_weight_decay(name, shape, stddev, wd, trainable=True):
         # wd_var = wd
         decay_factor = FLAGS['decay_factor']
         num_steps_per_decay = FLAGS['num_steps_per_decay']
-        global_step = FLAGS['global_step']
-        # # Decay the learning rate exponentially based on the number of steps.
+        global_step = VARS['global_step']
+        # Decay the learning rate exponentially based on the number of steps.
         wd_var = _variable_on_cpu('weight_decay',
                                   [],
                                   initializer=tf.constant_initializer(wd),

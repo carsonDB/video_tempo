@@ -81,8 +81,10 @@ def define_link(config):
     for k, v in config.iteritems():
         config[k] = unroll(v)
 
-# global variable cross modules
+# global variable(configure) cross modules
 FLAGS = {}
+# global variable(build-time vars) cross modeuls
+VARS = {}
 
 
 def main():
