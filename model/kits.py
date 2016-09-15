@@ -1,5 +1,5 @@
 import tensorflow as tf
-from config.config_agent import FLAGS
+from config.config_agent import FLAGS, VARS
 
 
 def loss(logits, labels):
@@ -71,7 +71,7 @@ def train(total_loss):
     Returns:
         train_op: op for training.
     """
-    global_step = FLAGS['global_step']
+    global_step = VARS['global_step']
     decay_steps = FLAGS['num_steps_per_decay']
     initial_learning_rate = FLAGS['initial_learning_rate']
     learning_rate_decay_factor = FLAGS['decay_factor']

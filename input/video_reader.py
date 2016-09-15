@@ -291,7 +291,8 @@ def build_start_nodes():
 
 
 # if need to launch threads manually
-is_custom = True
+def is_custom():
+    return True
 
 
 def threads_ready(sess, enqueue_op, coord):

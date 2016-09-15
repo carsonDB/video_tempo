@@ -49,7 +49,7 @@ def read():
     else:
         q = tf.FIFOQueue(capacity, [tf.float32, tf.int32],
                          shapes=[input_size, []])
-    THIS['queue'] = q
+    VARS['queue'] = q
 
     THIS['enqueue_op'] = q.enqueue([input_ts, label_ts])
     # dequeue
@@ -66,9 +66,9 @@ def launch():
     enqueue_op = THIS['enqueue_op']
 
     # start threads in the collection of 'queue_runners'
-    tf.start_queue_runners(sess=sess, coord=coord)
+    tf.train.start_queue_runners(sess=sess, coord=coord)
     # start threads self-defined
-    if reader.is_custom:
+    if reader.is_custom() is True:
         THIS['threads'] = reader.threads_ready(sess, enqueue_op, coord)
 
 
@@ -76,11 +76,12 @@ def close():
 
     sess = VARS['sess']
     coord = VARS['coord']
-    threads = THIS['threads']
-    queue = THIS['queue']
+    queue = VARS['queue']
 
     # disable equeue op, in case of readers blocking
-    sess.run(queue.close(cancel_pending_enqueues=True))
     coord.request_stop()
-    coord.join(threads)
+    sess.run(queue.close(cancel_pending_enqueues=True))
+    if 'threads' in THIS:
+        threads = THIS['threads']
+        coord.join(threads)
     sess.close()

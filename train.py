@@ -2,10 +2,12 @@
 train in a single GPU.
 """
 
-from importlib import import_module
-from datetime import datetime
-import os.path
+import os
+import sys
+import traceback
 import time
+from datetime import datetime
+from importlib import import_module
 
 import numpy as np
 from six.moves import xrange
@@ -27,84 +29,50 @@ def build_graph(nn, if_restart=False):
     # create a session and a coordinator
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    VARS['sess'] = sess = tf.Session(config=config)
-    VARS['coord'] = coord = tf.train.Coordinator()
+    VARS['sess'] = tf.Session(config=config)
+    VARS['coord'] = tf.train.Coordinator()
+    VARS['global_step'] = tf.Variable(0, trainable=False)
 
-    if if_restart:
-        global_step = tf.Variable(0, trainable=False)
-    else:
-        with sess:
-            ckpt = tf.train.get_checkpoint_state(FLAGS['checkpoint_dir'])
-            THIS['ckpt'] = ckpt
-        if not (ckpt and ckpt.model_checkpoint_path):
-            raise ValueError('No checkpoint file found')
-        global_step = int(ckpt.model_checkpoint_path
-                          .split('/')[-1].split('-')[-1])
-        global_step = tf.Variable(global_step, trainable=False)
-    # update FLAGS
-    VARS['global_step'] = global_step
-
-    # Build a Graph that computes the logits predictions from the
-    # Get clips and labels.
+    # Build a Graph that computes the logits predictions
     inputs, labels = input_agent.read()
-
     # inference model.
     logits = nn.inference(inputs)
-
     # Calculate loss.
     loss = kits.loss(logits, labels)
-
-    if not if_restart:
-        # determine variables to restore
-        variable_averages = tf.train.ExponentialMovingAverage(
-            FLAGS['moving_average_decay'])
-        variables_to_restore = variable_averages.variables_to_restore()
-        saver = tf.train.Saver(variables_to_restore)
-
     # updates the model parameters.
     train_op = kits.train(loss)
+
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.merge_all_summaries()
+    saver = tf.train.Saver(tf.all_variables())
 
     # THIS
-    THIS['coord'] = coord
     THIS['saver'] = saver
     THIS['loss'] = loss
     THIS['train_op'] = train_op
     THIS['summary_op'] = summary_op
 
 
-def init_graph(if_restart=False):
+def launch_graph(if_restart=False):
 
     sess = VARS['sess']
-    saver = THIS['saver']
-    ckpt = THIS['ckpt']
+    global_step = VARS['global_step']
 
-    # Build an initialization operation to run below.
-    init = tf.initialize_all_variables()
-    # Start running operations on the Graph.
-    sess.run(init)
-
-    # train from scratch
-    if if_restart:
-        # Create a saver.
-        THIS['saver'] = tf.train.Saver(tf.all_variables())
-    else:
-        saver.restore(sess, ckpt.model_checkpoint_path)
-
-
-def launch_graph():
-
-    sess = VARS['sess']
-    train_op = THIS['train_op']
     loss = THIS['loss']
+    train_op = THIS['train_op']
     summary_op = THIS['summary_op']
     saver = THIS['saver']
-    global_step = VARS['global_step']
+
+    # initialize variables and restore if any
+    init = tf.initialize_all_variables()
+    sess.run(init)
+    if if_restart is False:
+        ckpt = tf.train.get_checkpoint_state(FLAGS['checkpoint_dir'])
+        saver.restore(sess, ckpt.model_checkpoint_path)
 
     summary_writer = tf.train.SummaryWriter(FLAGS['train_dir'], sess.graph)
     # Start the queue runners.
-    # tf.train.start_queue_runners(sess=sess)
+    input_agent.launch()
 
     for step in xrange(sess.run(global_step), FLAGS['max_steps']):
         start_time = time.time()
@@ -128,7 +96,7 @@ def launch_graph():
             summary_writer.add_summary(summary_str, step)
 
         # Save the model checkpoint periodically.
-        if step % 1000 == 0 or (step + 1) == FLAGS['max_steps']:
+        if step % 100 == 0 or (step + 1) == FLAGS['max_steps']:
             checkpoint_path = os.path.join(FLAGS['train_dir'],
                                            'model.ckpt')
             saver.save(sess, checkpoint_path, global_step=step)
@@ -146,22 +114,22 @@ def main(argv=None):
         tf.gfile.MakeDirs(train_dir)
         if_restart = True
 
-    elif tf.gfile.Exists(train_dir) and if_restart:
-        # clear and restart
+    elif if_restart:
+        # clear old train_dir and restart
         tf.gfile.DeleteRecursively(train_dir)
         tf.gfile.MakeDirs(train_dir)
 
     if model_type in ['cnn', 'rnn']:
+        nn = import_module('model.' + model_type)
 
         with tf.Graph().as_default():
-            nn = import_module('model.' + model_type)
             build_graph(nn, if_restart)
-            init_graph(if_restart)
             try:
-                launch_graph()
-                print('training process closed normally')
+                launch_graph(if_restart)
+                print('training process closed normally\n')
             except:
-                print('training process closed with error')
+                traceback.print_exc(file=sys.stdout)
+                print('training process closed with error\n')
             finally:
                 input_agent.close()
 
