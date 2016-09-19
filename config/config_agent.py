@@ -84,7 +84,10 @@ def define_link(config):
 # global variable(configure) cross modules
 FLAGS = {}
 # global variable(build-time vars) cross modeuls
-VARS = {}
+VARS = {
+    'threads': [],
+    'queues': []
+}
 
 
 def main():

@@ -26,7 +26,9 @@ def read():
     QUEUE = FLAGS['input_queue']
     capacity = QUEUE['capacity']
     batch_size = FLAGS['batch_size']
+
     sess = VARS['sess']
+    coord = VARS['coord']
 
     # determine reader and preprocessor
     THIS['reader'] = reader = import_module('input.video_reader')
@@ -49,39 +51,38 @@ def read():
     else:
         q = tf.FIFOQueue(capacity, [tf.float32, tf.int32],
                          shapes=[input_size, []])
-    VARS['queue'] = q
-
-    THIS['enqueue_op'] = q.enqueue([input_ts, label_ts])
-    # dequeue
+    VARS['queues'].append(q)
+    # enqueue example
+    THIS['enqueue_op'] = enqueue_op = q.enqueue([input_ts, label_ts])
+    # dequeue batch
     input_batch, label_batch = q.dequeue_many(batch_size)
+
+    # create reading threads if necessary
+    VARS['threads'] += reader.create_threads(sess, enqueue_op, coord)
 
     return input_batch, label_batch
 
 
 def launch():
-
-    sess = VARS['sess']
-    coord = VARS['coord']
     reader = THIS['reader']
-    enqueue_op = THIS['enqueue_op']
+    reader.start_threads(VARS['threads'])
 
-    # start threads in the collection of 'queue_runners'
-    tf.train.start_queue_runners(sess=sess, coord=coord)
-    # start threads self-defined
-    if reader.is_custom() is True:
-        THIS['threads'] = reader.threads_ready(sess, enqueue_op, coord)
+
+# def pause():
+#     reader = THIS['reader']
+#     reader.pause_threads(VARS['threads'])
 
 
 def close():
 
     sess = VARS['sess']
     coord = VARS['coord']
-    queue = VARS['queue']
+    queues = VARS['queues']
 
     # disable equeue op, in case of readers blocking
     coord.request_stop()
-    sess.run(queue.close(cancel_pending_enqueues=True))
-    if 'threads' in THIS:
-        threads = THIS['threads']
-        coord.join(threads)
+    for q in queues:
+        sess.run(q.close(cancel_pending_enqueues=True))
+    threads = VARS['threads']
+    coord.join(threads)
     sess.close()

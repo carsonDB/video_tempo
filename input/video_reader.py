@@ -295,20 +295,26 @@ def is_custom():
     return True
 
 
-def threads_ready(sess, enqueue_op, coord):
+def create_threads(sess, enqueue_op, coord):
 
     QUEUE = FLAGS['input_queue']
     num_reader = QUEUE['num_reader']
 
-    thread_lst = [threading.Thread(target=clip_read_thread,
-                                   args=(RAW_INPUT_FLOAT32, LABEL_INPUT,
-                                         sess, enqueue_op, coord))
-                  for i in range(num_reader)
-                  ]
-    for i in range(num_reader):
-        thread_lst[i].start()
+    return [threading.Thread(target=clip_read_thread,
+                             args=(RAW_INPUT_FLOAT32, LABEL_INPUT,
+                                   sess, enqueue_op, coord))
+            for i in range(num_reader)
+            ]
 
-    return thread_lst
+
+def start_threads(lst):
+    for t in lst:
+        t.start()
+
+
+# def pause_threads(lst):
+#     for t in lst:
+#         t.
 
 
 # def main():

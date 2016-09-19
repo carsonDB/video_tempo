@@ -1,10 +1,12 @@
-"""Evaluation for model.
+"""Evaluation for model (single GPU).
 """
 
 from importlib import import_module
 from datetime import datetime
 import math
 import time
+import traceback
+import sys
 
 import numpy as np
 import tensorflow as tf
@@ -12,25 +14,29 @@ import tensorflow as tf
 # import local file
 from input import input_agent
 from config import config_agent
-from config.config_agent import FLAGS
+from config.config_agent import FLAGS, VARS
 
 
-def eval_once(saver, summary_writer, top_k_op, summary_op,
-              sess, coord,
-              logits):
+THIS = {}
+
+
+def eval_once(summary_writer, top_k_op):
     """Run Eval once.
 
     Args:
-        saver: Saver.
         summary_writer: Summary writer.
         top_k_op: Top K op.
         summary_op: Summary op.
     """
     batch_size = FLAGS['batch_size']
     num_examples = FLAGS['num_examples']
+    num_top = FLAGS['top']
 
-    with sess:
-        ckpt = tf.train.get_checkpoint_state(FLAGS['checkpoint_dir'])
+    sess = VARS['sess']
+    coord = VARS['coord']
+    saver = THIS['saver']
+
+    ckpt = tf.train.get_checkpoint_state(FLAGS['checkpoint_dir'])
     if ckpt and ckpt.model_checkpoint_path:
         # Restores from checkpoint
         saver.restore(sess, ckpt.model_checkpoint_path)
@@ -42,94 +48,77 @@ def eval_once(saver, summary_writer, top_k_op, summary_op,
         print('No checkpoint file found')
         return
 
-    try:
-        # threads = []
-        # for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
-        #     threads.extend(qr.create_threads(sess, coord=coord, daemon=True,
-        #                                      start=True))
+    num_iter = int(math.ceil(1.0*num_examples / batch_size))
+    true_count = 0  # Counts the number of correct predictions.
+    total_sample_count = num_iter * batch_size
+    step = 0
+    print('Total steps: %d' % num_iter)
+    while step < num_iter and not coord.should_stop():
+        predictions = sess.run([top_k_op])
+        # print predictions
+        true_count += np.sum(predictions)
 
-        # Start the queue runners.
-        tf.train.start_queue_runners(sess=sess)
-
-        num_iter = int(math.ceil(1.0*num_examples / batch_size))
-        true_count = 0  # Counts the number of correct predictions.
-        total_sample_count = num_iter * batch_size
-        step = 0
-        print('Total steps: %d' % num_iter)
-        while step < num_iter and not coord.should_stop():
-            predictions = sess.run([top_k_op])
-            # print predictions
-            true_count += np.sum(predictions)
-
-            precision = 1.0*true_count / total_sample_count
-            print('step: %d, precision %f' % (step, precision))
-
-            step += 1
-
-        # Compute precision @ 1.
         precision = 1.0*true_count / total_sample_count
-        print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
+        print('step: %d, precision %f' % (step, precision))
 
-        summary = tf.Summary()
-        summary.ParseFromString(sess.run(summary_op))
-        summary.value.add(tag='Precision @ 1', simple_value=precision)
-        summary_writer.add_summary(summary, global_step)
-    except Exception as e:  # pylint: disable=broad-except
-        coord.request_stop(e)
+        step += 1
 
-    # coord.request_stop()
-    # coord.join(threads, stop_grace_period_secs=10)
+    # Compute precision @ 1.
+    precision = 1.0*true_count / total_sample_count
+    print('%s: precision @ %d = %.3f' % (datetime.now(), num_top, precision))
+
+    summary = tf.Summary()
+    # summary.ParseFromString(sess.run(summary_op))
+    summary.value.add(tag='Precision @ %d' % num_top,
+                      simple_value=precision)
+    summary_writer.add_summary(summary, global_step)
+
+    # # stop this time of evaluation
+    # input_agent.pause()
 
 
 def evaluate(nn):
     """Eval for one or a number of times."""
 
-    with tf.Graph().as_default() as g:
-        # create a session and a coordinator
-        config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True
-        sess = tf.Session(config=config)
-        coord = tf.train.Coordinator()
+    # create a session and a coordinator
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    VARS['sess'] = sess = tf.Session(config=config)
+    VARS['coord'] = tf.train.Coordinator()
 
-        # Build subgraph (reader and preprocesser).
-        inputs, labels, readers = input_agent.read(sess, coord)
+    # Build subgraph (reader and preprocesser).
+    inputs, labels = input_agent.read()
 
-        # Build a Graph that computes the logits predictions from the
-        # inference model.
-        logits = nn.inference(inputs)
-        
-        variable_averages = tf.train.ExponentialMovingAverage(
-            FLAGS['moving_average_decay'])
-        variables_to_restore = variable_averages.variables_to_restore()
-        import pdb; pdb.set_trace()  # breakpoint 2d88dce1 //
+    # Build a Graph that computes the logits predictions from the
+    # inference model.
+    logits = nn.inference(inputs)
 
-        # Calculate predictions.
-        top_k_op = tf.nn.in_top_k(logits, labels, 1)
+    # variables postfix with exponentialMovingAverage
+    variable_averages = tf.train.ExponentialMovingAverage(
+        FLAGS['moving_average_decay'])
+    variables_to_restore = variable_averages.variables_to_restore()
+    THIS['saver'] = tf.train.Saver(variables_to_restore)
 
-        # Restore the moving average version of the learned variables for eval.
-        variable_averages = tf.train.ExponentialMovingAverage(
-            FLAGS['moving_average_decay'])
-        variables_to_restore = variable_averages.variables_to_restore()
-        saver = tf.train.Saver(variables_to_restore)
+    # Calculate predictions.
+    top_k_op = tf.nn.in_top_k(logits, labels, FLAGS['top'])
 
     # Build the summary operation based on the TF collection of Summaries.
-    summary_op = tf.merge_all_summaries()
-    summary_writer = tf.train.SummaryWriter(FLAGS['eval_dir'], g)
+    summary_writer = tf.train.SummaryWriter(FLAGS['eval_dir'], sess.graph)
+
+    # Start the queue runners.
+    input_agent.launch()
 
     while True:
-        eval_once(saver, summary_writer, top_k_op, summary_op,
-                  sess, coord, logits)
+        eval_once(summary_writer, top_k_op)
         if FLAGS['run_once']:
             break
         time.sleep(FLAGS['eval_interval_secs'])
-
-    coord.request_stop()
-    coord.join(readers)
 
 
 def main(argv=None):
     # unroll arguments of eval mode
     config_agent.init_FLAGS('eval')
+
     eval_dir = FLAGS['eval_dir']
     model_type = FLAGS['type']
 
@@ -138,7 +127,20 @@ def main(argv=None):
     tf.gfile.MakeDirs(eval_dir)
 
     if model_type in ['cnn', 'rnn']:
-        evaluate(import_module('model.' + model_type))
+        nn = import_module('model.' + model_type)
+        with tf.Graph().as_default():
+
+            try:
+                evaluate(nn)
+                print('eval process closed nomally\n')
+            except:
+                traceback.print_exc(file=sys.stdout)
+                print('eval process closed with error\n')
+            finally:
+                input_agent.close()
+    else:
+        raise ValueError('no such model: %s', model_type)
+
 
 if __name__ == '__main__':
     tf.app.run()

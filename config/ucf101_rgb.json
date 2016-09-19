@@ -18,13 +18,15 @@
     "input_queue": {
         // "FIFO" or "shuffle" queue
         "type": "FIFO",
-        "capacity": 50,
+        "capacity": 100,
         // "min_remain": 30,
-        "num_reader": 5
+        "num_reader": 10
     },
 
 // sharing hyperparameters
-    "batch_size": 30,
+    "batch_size": 30, // real: batch_size / num_gpus
+    // num of gpus
+    "num_gpus": 4,
     // optimizer
     "momentum": 0.9,
     // decay factor for learning_rate and weight decay
@@ -66,8 +68,10 @@
         "eval_interval_secs": 300,
         // Number of examples to run
         "num_examples": 4000,
+        // top n precision
+        "top": 1,
         // Whether to run eval only once
-        "run_once": true,
+        "run_once": false,
         "num_examples_per_epoch": 4000,
         // Directory where to write event logs
         "eval_dir": "/tmp/ucf101_rgb_eval",
