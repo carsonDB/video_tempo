@@ -1,0 +1,17 @@
+{
+	"data_dir": "~/dataset/ucf11",
+	// generate a list of data: path + label
+	"lst_path": "./ucf11.lst",
+	// split above dataset
+	"splits": {
+		"~/dataset/train_lst": 0.61,
+		"~/dataset/test_lst": 0.39
+	},
+	"shuffle": true,
+
+    // convert to sequence of frames
+    "seq_frames_path": "~/dataset/ucf11_seq_frames",
+    "num_group": 30,
+    "stride": 4,
+    "resolution": [224, 224]
+}

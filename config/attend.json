@@ -1,89 +1,84 @@
 {
     // meta info
     "name": "attend",
-    "type": "rnn",
+    "type": "rnn_static",
     // input info
     "input": {
-        "type": "seq_video",
-        "read_from": "frame",
+        "type": "seq_feature",
         "num_class": 11,
-        "num_step": 10,
-        // input will be resized to [height, width]
-        "read_resolution": [240, 320],
-        "clip_length": 16,
-        // RGB or other
-        "num_channel": 3,
-        // preprocess info (pipeline)
-        "preproc": [{
-                "name": "resize",
-                // [height, width, ...]
-                "size": [120, 160]
-            },	{
-                "name": "random_crop",
-                // [depth(time), height, width, in-channels]
-                "size": [16, 24, 24, 3]
-                // "num_crop": 5 (no need)
-            }, {
-                // pretrained model for feature extractor
-                "name": "__model__",
-                // model config
-                "config_name": "C3D",
-                // checkpoint directory
-                "ckpt_path": "/tmp/C3D_train",
-                "in_port": "last_fc"
-            }
-        ],
-        // enqueue info
-        "queue": {
-            // "FIFO" or "shuffle" queue
-            "type": "shuffle",
-            "capacity": 10,
-            "min_remain": 5,
-            "num_reader": 1
-        }
+        "example_size": [30, 7, 7, 1024],
+        "max_time_steps": 30
+    },
+    "input_reader": "feature_reader",
+    // enqueue info
+    "input_queue": {
+        // "FIFO" or "shuffle" queue
+        "type": "shuffle",
+        "capacity": 400,
+        "min_remain": 100,
+        "num_reader": 20
     },
 
     // sharing hyperparameters
-    "batch_size": 1,
+    "batch_size": 120,
+    // num of gpus
+    "num_gpus": 4,
+    // optimizer
+    "optimizer": {
+        "name": "adam",
+        "args": {}
+        // "momentum": 0.9,
+    },
+    // decay factor for learning_rate and weight decay
+    "decay_factor": 0.1,
+    // The decay to use for the moving average
+    "moving_average_decay": 0.9999,
+    // Directory where to read model checkpoints
+    "checkpoint_dir": "/tmp/attend_train",
+    "preproc": [],
 
     // train info
-    "train": {
+    "@train": {
         // content: path + label_id
-        "lst_path": "~/dataset/train_lst",
-        	"initial_learning_rate": 0.003, 
-        	"max_steps": 10000,
-        "num_examples_per_epoch_for_train": 100,
-        	// Epochs after which learning rate decays
-        	"num_epochs_per_decay": 350.0,
-        	// The decay to use for the moving average
-        	"moving_average_decay": 0.9999,
-        // Learning rate decay factor
-        "learning_rate_decay_factor": 0.1,
+        "feature_path": "~/dataset/ucf11_train_features.hdf5",
+    	"initial_learning_rate": 0.003,
+    	"max_steps": 60000,
+        // learning rate and weight decay decrease
+        "num_steps_per_decay": 20000,
         // checkpoint after train
         "train_dir": "/tmp/attend_train"
-    },	
+    },
     // eval info
-    "eval": {
+    "@eval": {
         // content: path + label_id
-        "lst_path": "~/dataset/test_lst",
+        "feature_path": "~/dataset/ucf11_test_features.hdf5",
         // Directory where to write event logs
         "eval_dir": "/tmp/attend_eval",
-        // Directory where to read model checkpoints
-        "checkpoint_dir": "/tmp/attend_train",
         // How often to run the eval if run_once == false
-        "eval_interval_secs": 300,
-        // The decay to use for the moving average
-        	"moving_average_decay": 0.9999,
+        "eval_interval_secs": 30,
         // Number of examples to run
-        "num_examples": 100,
+        "num_examples": 2400,
+        // top n precision
+        "top": 1,
         // Whether to run eval only once
-        "run_once": true,
-        "num_examples_per_epoch_for_eval": 100
+        "run_once": false,
+        "num_examples_per_epoch": 2400,
+        // two modes (example, group of examples)
+        "@test": {
+            "batch_size": 30
+        },
+        "input_queue": {
+            // "FIFO" or "shuffle" queue
+            "type": "FIFO",
+            "capacity": 10,
+            "num_reader": 1
+        }
     },
     // graph info
     "graph": {
-        "hidden_size": 100,
-        "num_layer": 3
+        "hidden_size": 512,
+        "num_layer": 3,
+        "dropout": 0.9
     },
     // Macros below
     // parameters-format in correspondence with Tensorflow_api

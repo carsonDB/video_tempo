@@ -5,6 +5,8 @@
     // input info
     "input": {
         "type": "video",
+        "max_time_steps": 5,
+        "mean_file": "/home/user/data/train01_mean.npy",
         // exitence form of data (frames, clips)
         "read_from": "frames",
         "num_class": 101,
@@ -37,7 +39,7 @@
     "checkpoint_dir": "/tmp/ucf101_rgb_train",
 
     // train info
-    "train": {
+    "@train": {
         // content: path + label_id
         "lst_path": "/home/user/data/train_rgb_ucf101_sp1.lst",
         "initial_learning_rate": 0.003, 
@@ -53,17 +55,19 @@
             }, {
                 "name": "random_crop",
                 // [depth(time), height, width, in-channels]
-                "size": [16, 112, 112, 3]
+                "size": [112, 112]
             }, {
-             "name": "flip_left_right",
+             "name": "random_flip_left_right",
              "prob": 0.5
             }
         ]
     },  
     // eval info
-    "eval": {
+    "@eval": {
         // content: path + label_id
         "lst_path": "/home/user/data/test_rgb_ucf101_sp1.lst",
+        // Directory where to write event logs
+        "eval_dir": "/tmp/ucf101_rgb_eval",
         // How often to run the eval if run_once == false
         "eval_interval_secs": 300,
         // Number of examples to run
@@ -73,21 +77,38 @@
         // Whether to run eval only once
         "run_once": false,
         "num_examples_per_epoch": 4000,
-        // Directory where to write event logs
-        "eval_dir": "/tmp/ucf101_rgb_eval",
+        // two modes (example, group of examples)
+        "@valid": {
+            "batch_size": 30
+        },
+        "@test": {
+            "depth_interval": 30,
+            "batch_size": 1,
+            "preproc": [{
+                "name": "subtract_mean"
+            }, {
+                "name": "crop",
+                // [height, width]
+                "size": [112, 112],
+                "pos": "all"
+            }, {
+                "name": "double_flip_left_right"
+            }]
+        },
         // preprocess info (pipeline)
         "preproc": [{
                 "name": "subtract_mean"
             }, {
-                "name": "test_crop",
+                "name": "crop",
                 // [height, width]
-                "size": [112, 112]
-            },
-            // maybe shouldn't
-            {
-             "name": "flip_left_right",
-             "prob": 0.5
+                "size": [112, 112],
+                "pos": "mid"
             }
+            // maybe shouldn't
+            // {
+            //  "name": "random_flip_left_right",
+            //  "prob": 0.5
+            // }
         ]
     },
 

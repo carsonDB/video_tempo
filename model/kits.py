@@ -1,3 +1,5 @@
+import re
+
 import tensorflow as tf
 from config.config_agent import FLAGS, VARS
 
@@ -58,6 +60,23 @@ def _add_loss_summaries(total_loss):
     return loss_averages_op
 
 
+def _get_optimizer(lr):
+    optimizer_list = [
+        "momentum",
+        "adam",
+        # ""
+    ]
+    OPT = FLAGS['optimizer']
+    name = OPT['name']
+    args = OPT['args']
+
+    if name not in optimizer_list:
+        raise ValueError('%s optimizer not support', name)
+
+    optimizer = getattr(tf.train, '%sOptimizer' % name.title())
+    return optimizer(lr, **args)
+
+
 def train(total_loss):
     """Train model graph.
 
@@ -76,7 +95,6 @@ def train(total_loss):
     initial_learning_rate = FLAGS['initial_learning_rate']
     learning_rate_decay_factor = FLAGS['decay_factor']
     moving_average_decay = FLAGS['moving_average_decay']
-    momentum = FLAGS['momentum']
 
     # Decay the learning rate exponentially based on the number of steps.
     lr = tf.train.exponential_decay(initial_learning_rate,
@@ -91,7 +109,7 @@ def train(total_loss):
 
     # Compute gradients.
     with tf.control_dependencies([loss_averages_op]):
-        opt = tf.train.MomentumOptimizer(lr, momentum)
+        opt = _get_optimizer(lr)
         grads = opt.compute_gradients(total_loss)
 
     # Apply gradients.
@@ -116,3 +134,86 @@ def train(total_loss):
         train_op = tf.no_op(name='train')
 
     return train_op
+
+
+def variable_on_cpu(name, shape, initializer, trainable=True):
+    """Helper to create a Variable stored on CPU memory.
+
+    Args:
+      name: name of the variable
+      shape: list of ints
+      initializer: initializer for Variable
+
+    Returns:
+      Variable Tensor
+    """
+    with tf.device('/cpu:0'):
+        var = tf.get_variable(name, shape, trainable=trainable,
+                              initializer=initializer)
+    return var
+
+
+def variable_with_weight_decay(name, shape, stddev, wd, trainable=True):
+    """Helper to create an initialized Variable with weight decay.
+
+    Note that the Variable is initialized with a truncated normal distribution.
+    A weight decay is added only if one is specified.
+
+    Args:
+      name: name of the variable
+      shape: list of ints
+      stddev: standard deviation of a truncated Gaussian
+      wd: add L2Loss weight decay multiplied by this float. If None, weight
+          decay is not added for this Variable.
+
+    Returns:
+      Variable Tensor
+    """
+
+    var = variable_on_cpu(
+        name,
+        shape,
+        tf.truncated_normal_initializer(stddev=stddev),
+        trainable=trainable)
+    if wd is not None and VARS['mode'] == 'train':
+        # wd_var = wd
+        decay_factor = FLAGS['decay_factor']
+        num_steps_per_decay = FLAGS['num_steps_per_decay']
+        global_step = VARS['global_step']
+        # Decay the learning rate exponentially based on the number of steps.
+        wd_var = variable_on_cpu('weight_decay',
+                                 [],
+                                 initializer=tf.constant_initializer(wd),
+                                 trainable=False)
+        wd_var *= tf.pow(decay_factor,
+                         tf.cast(global_step / num_steps_per_decay,
+                                 tf.float32))
+        # tf.scalar_summary('weight_decay', wd_var)
+        # weight decay should decrease
+        weight_decay = tf.mul(tf.nn.l2_loss(var), wd_var, name='weight_loss')
+        tf.add_to_collection('losses', weight_decay)
+    return var
+
+
+def activation_summary(x):
+    """Helper to create summaries for activations.
+
+    Creates a summary that provides a histogram of activations.
+    Creates a summary that measure the sparsity of activations.
+
+    Args:
+      x: Tensor
+    Returns:
+      nothing
+    """
+    # If a model is trained with multiple GPUs,
+    # prefix all Op names with tower_name to differentiate the operations.
+    # Note that this prefix is removed
+    # from the names of the summaries when visualizing a model.
+
+    # Remove 'tower_[0-9]/' from the name in case this is a multi-GPU training
+    # session. This helps the clarity of presentation on tensorboard.
+    TOWER_NAME = 'tower'
+    tensor_name = re.sub('%s_[0-9]*/' % TOWER_NAME, '', x.op.name)
+    tf.histogram_summary(tensor_name + '/activations', x)
+    tf.scalar_summary(tensor_name + '/sparsity', tf.nn.zero_fraction(x))

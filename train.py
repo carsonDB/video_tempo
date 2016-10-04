@@ -34,11 +34,11 @@ def build_graph(nn, if_restart=False):
     VARS['global_step'] = tf.Variable(0, trainable=False)
 
     # Build a Graph that computes the logits predictions
-    inputs, labels = input_agent.read()
+    inputs, labels, masks = input_agent.read()
     # inference model.
-    logits = nn.inference(inputs)
+    logits = nn.inference(inputs, masks)
     # Calculate loss.
-    loss = kits.loss(logits, labels)
+    loss = nn.loss(logits, labels)
     # updates the model parameters.
     train_op = kits.train(loss)
 
@@ -64,8 +64,12 @@ def launch_graph(if_restart=False):
     saver = THIS['saver']
 
     # initialize variables and restore if any
-    init = tf.initialize_all_variables()
-    sess.run(init)
+    # init = tf.initialize_all_variables()
+    # sess.run(init)
+    var_lst = tf.all_variables()
+    for var in var_lst:
+        sess.run(tf.initialize_variables([var]))
+
     if if_restart is False:
         ckpt = tf.train.get_checkpoint_state(FLAGS['checkpoint_dir'])
         saver.restore(sess, ckpt.model_checkpoint_path)
@@ -91,12 +95,12 @@ def launch_graph(if_restart=False):
             print(format_str % (datetime.now(), step, loss_value,
                                 examples_per_sec, sec_per_batch))
 
-        if step % 100 == 0:
+        if step % 50 == 0:
             summary_str = sess.run(summary_op)
             summary_writer.add_summary(summary_str, step)
 
         # Save the model checkpoint periodically.
-        if step % 1000 == 0 or (step + 1) == FLAGS['max_steps']:
+        if step % 50 == 0 or (step + 1) == FLAGS['max_steps']:
             checkpoint_path = os.path.join(FLAGS['train_dir'],
                                            'model.ckpt')
             saver.save(sess, checkpoint_path, global_step=step)
@@ -105,9 +109,10 @@ def launch_graph(if_restart=False):
 def main(argv=None):
     # unroll arguments of train
     config_agent.init_FLAGS('train')
+
     train_dir = FLAGS['train_dir']
     model_type = FLAGS['type']
-    if_restart = FLAGS['if_restart']
+    if_restart = VARS['if_restart']
 
     if not tf.gfile.Exists(train_dir):
         # only start from scratch
@@ -119,11 +124,12 @@ def main(argv=None):
         tf.gfile.DeleteRecursively(train_dir)
         tf.gfile.MakeDirs(train_dir)
 
-    if model_type in ['cnn', 'rnn']:
-        nn = import_module('model.' + model_type)
+    if model_type in ['cnn', 'rnn', 'rnn_static']:
+        nn_package = import_module('model.' + model_type)
+        model = nn_package.Model()
 
         with tf.Graph().as_default():
-            build_graph(nn, if_restart)
+            build_graph(model, if_restart)
             try:
                 launch_graph(if_restart)
                 print('training process closed normally\n')

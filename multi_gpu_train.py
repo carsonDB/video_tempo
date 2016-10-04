@@ -1,3 +1,5 @@
+from __future__ import division
+
 from datetime import datetime
 import os
 import sys
@@ -11,11 +13,10 @@ from six.moves import xrange
 import tensorflow as tf
 
 # import local file
-from model import kits
 from input import input_agent
 from config import config_agent
 from config.config_agent import FLAGS, VARS
-
+from model import kits
 
 # module FLAGS
 THIS = {}
@@ -25,12 +26,12 @@ def tower_loss(scope, nn, if_restart=False):
 
     moving_average_decay = FLAGS['moving_average_decay']
 
-    inputs, labels = input_agent.read()
+    inputs, labels, masks = input_agent.read()
     # Build inference Graph.
-    logits = nn.inference(inputs)
+    logits = nn.inference(inputs, masks)
     # Build the portion of the Graph calculating the losses. Note that we will
     # assemble the total_loss using a custom function below.
-    _ = kits.loss(logits, labels)
+    _ = nn.loss(logits, labels)
     # Assemble all of the losses for the current tower only.
     losses = tf.get_collection('losses', scope)
     # Calculate the total loss for the current tower.
@@ -106,7 +107,7 @@ def build_graph():
     VARS['global_step'] = tf.Variable(0, trainable=False)
 
     # real batch_size (temp)
-    FLAGS['batch_size'] = int(float(FLAGS['batch_size']) / FLAGS['num_gpus'])
+    FLAGS['batch_size'] = int(FLAGS['batch_size'] / FLAGS['num_gpus'])
 
 
 def launch_graph(nn, if_restart=False):
@@ -120,7 +121,6 @@ def launch_graph(nn, if_restart=False):
     initial_learning_rate = FLAGS['initial_learning_rate']
     learning_rate_decay_factor = FLAGS['decay_factor']
     moving_average_decay = FLAGS['moving_average_decay']
-    momentum = FLAGS['momentum']
     num_gpus = FLAGS['num_gpus']
     max_steps = FLAGS['max_steps']
 
@@ -132,7 +132,7 @@ def launch_graph(nn, if_restart=False):
                                     staircase=True)
 
     # Create an optimizer that performs gradient descent.
-    opt = tf.train.MomentumOptimizer(lr, momentum)
+    opt = kits._get_optimizer(lr)
 
     # Calculate the gradients for each model tower.
     tower_grads = []
@@ -190,15 +190,22 @@ def launch_graph(nn, if_restart=False):
     # Build the summary operation from the last tower summaries.
     summary_op = tf.merge_summary(summaries)
 
+    # start read-threads
+    input_agent.launch()
+
     # Build an initialization operation to run below.
-    init = tf.initialize_all_variables()
-    sess.run(init)
+    # init = tf.initialize_all_variables()
+    # sess.run(init)
+    # init alternatives
+    var_lst = tf.all_variables()
+    for var in var_lst:
+        sess.run(tf.initialize_variables([var]))
+
     if if_restart is False:
         ckpt = tf.train.get_checkpoint_state(FLAGS['checkpoint_dir'])
         saver.restore(sess, ckpt.model_checkpoint_path)
 
     # Start the queue runners.
-    input_agent.launch()
 
     summary_writer = tf.train.SummaryWriter(train_dir, sess.graph)
 
@@ -234,7 +241,7 @@ def main(argv=None):
 
     train_dir = FLAGS['train_dir']
     model_type = FLAGS['type']
-    if_restart = FLAGS['if_restart']
+    if_restart = VARS['if_restart']
 
     if not tf.gfile.Exists(train_dir):
         # only start from scratch
@@ -246,13 +253,14 @@ def main(argv=None):
         tf.gfile.DeleteRecursively(train_dir)
         tf.gfile.MakeDirs(train_dir)
 
-    if model_type in ['cnn', 'rnn']:
-        nn = import_module('model.' + model_type)
+    if model_type in ['cnn', 'rnn', 'rnn_static']:
+        nn_package = import_module('model.' + model_type)
+        model = nn_package.Model()
 
         with tf.Graph().as_default(), tf.device('/cpu:0'):
             build_graph()
             try:
-                launch_graph(nn, if_restart)
+                launch_graph(model, if_restart)
                 print('training process closed normally\n')
             except:
                 traceback.print_exc(file=sys.stdout)

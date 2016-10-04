@@ -1,15 +1,18 @@
-"""read batch of clips
+"""read one clip a time
 Several threads read clips from videos
 Parts:
     * read_thread: fetch clips and enqueue
     * seq_read_thread: fetch sequence of clips and enqueue
     * build_start_nodes: create placeholders
+    * build_start_nodes_for_test: create placeholders
     * is_custom: if need to launch threads manually
     * threads_ready: launch threads if necessary
 types:
     * video: [depth, height, width, in_channels]
     * seq_video: [steps, depth, height, width, in_channels]
 """
+from __future__ import division
+
 import os
 import math
 import cv2
@@ -22,33 +25,17 @@ import tensorflow as tf
 # import local file
 from config.config_agent import FLAGS
 
-# global variables
-RAW_INPUT_FLOAT32 = None
-LABEL_INPUT = None
+# module variables
+THIS = {}
 
 
-def read_rgb(frm_dir, length):
-    """
-    random cut out a clip from one video
-    """
+def cut_out(frame_lst):
+    # cut out a clip
     read_resolution = FLAGS['input']['read_resolution']
 
-    frame_lst = [os.path.join(frm_dir, f)
-                 for f in os.listdir(frm_dir)
-                 if os.path.isfile(os.path.join(frm_dir, f))]
-    # sort alphabet sequence
-    frame_lst.sort()
-
-    len_frame = len(frame_lst)
-    if len_frame < length:
-        last_frame = frame_lst[-1]
-        frame_lst += [last_frame] * (length - len_frame)
-
-    start_id = random.randint(0, len(frame_lst) - length)
-
-    # cut out
+    # cut out into a list
     re_lst = []
-    for frm_path in frame_lst[start_id:(start_id + length)]:
+    for frm_path in frame_lst:
         if not os.path.exists(frm_path):
             raise ValueError('frame not exists: %s', frm_path)
         frm = cv2.imread(frm_path)
@@ -60,6 +47,42 @@ def read_rgb(frm_dir, length):
     return re_lst
 
 
+def read_rgb(frm_dir, length):
+    """
+    random cut out a clip from one video
+    """
+
+    frame_lst = [os.path.join(frm_dir, f)
+                 for f in os.listdir(frm_dir)
+                 if os.path.isfile(os.path.join(frm_dir, f))]
+    # sort alphabet sequence
+    frame_lst.sort()
+
+    len_frame = len(frame_lst)
+    # when video shorter than clip
+    if len_frame < length:
+        last_frame = frame_lst[-1]
+        frame_lst += [last_frame] * (length - len_frame)
+
+    if 'depth_interval' in FLAGS:
+        interval = FLAGS['depth_interval']
+        max_time_steps = FLAGS['input']['max_time_steps']
+        # limit number of clips <= max_time_steps
+        num_clip = min(max_time_steps,
+                       (len_frame - length)//interval + 1)
+
+        start_id = 0
+        out_lst = [cut_out(frame_lst[start_id + i*interval:
+                                     start_id + i*interval + length])
+                   for i in range(num_clip)]
+    else:
+        start_id = random.randint(0, len(frame_lst) - length)
+        out_lst = cut_out(frame_lst[start_id:start_id + length])
+
+    return np.array(out_lst)
+
+
+# fall behind !!!
 def read_flow(frm_dir, length):
     """
     random cut out a clip from one video
@@ -94,13 +117,14 @@ def read_flow(frm_dir, length):
 
         re_lst.append(np.dstack((frm_x, frm_y)))
 
-    return re_lst
+    return np.array(re_lst)
 
 
-def clip_read_thread(raw_input_uint8, label_input,
-                     sess, enqueue_op, coord):
+def read_thread(raw_input_uint8, label_input, raw_mask,
+                sess, enqueue_op, coord):
 
     INPUT = FLAGS['input']
+    max_time_steps = INPUT['max_time_steps']
     num_channel = INPUT['num_channel']
     clip_length = INPUT['clip_length']
     lst_path = FLAGS['lst_path']
@@ -122,16 +146,25 @@ def clip_read_thread(raw_input_uint8, label_input,
     while not coord.should_stop():
         for frm_dir, label_id in example_lst:
             clip = read_clip(frm_dir, clip_length)
+            mask = [True] * max_time_steps
+            if len(clip.shape) > 4:
+                real_len = clip.shape[-5]
+                mask = [1]*real_len + [0]*(max_time_steps - real_len)
+                # padding zeros
+                zero_tail = np.zeros([max_time_steps - clip.shape[-5]]
+                                     + list(clip.shape[-4:]))
+                clip = np.concatenate([clip, zero_tail])
             # enqueue
             try:
                 sess.run(enqueue_op, feed_dict={raw_input_uint8: clip,
-                                                label_input: label_id})
+                                                label_input: label_id,
+                                                raw_mask: mask})
             except:
                 return
 
 
 # deprecated !!!
-def read_thread(raw_input_uint8, label_input,
+def read_thread_from_video(raw_input_uint8, label_input,
                 sess, enqueue_op, coord):
     """Reads examples from video data files and enqueue.
     """
@@ -188,7 +221,7 @@ def read_thread(raw_input_uint8, label_input,
 
 
 # deprecated !!!
-def seq_read_thread(raw_input_uint8, label_input,
+def seq_read_thread_from_video(raw_input_uint8, label_input,
                     sess, enqueue_op, coord):
     """Reads sequence of examples from video data files and enqueue.
     """
@@ -259,11 +292,9 @@ def build_start_nodes():
         * label_input
     """
     # global variables declare
-    global RAW_INPUT_FLOAT32
-    global LABEL_INPUT
-
     INPUT = FLAGS['input']
     input_type = INPUT['type']
+    max_time_steps = INPUT['max_time_steps']
     clip_length = INPUT['clip_length']
     clip_size = ([clip_length] +
                  INPUT['read_resolution'] +
@@ -272,22 +303,72 @@ def build_start_nodes():
     # raw input nodes
     if input_type == 'video':
         # shape: [depth, height, width, in_channels]
-        LABEL_INPUT = tf.placeholder(tf.int32, shape=[])
+        label_input = tf.placeholder(tf.int32, shape=[])
         raw_input_uint8 = tf.placeholder(tf.uint8, shape=clip_size)
-        RAW_INPUT_FLOAT32 = tf.cast(raw_input_uint8, tf.float32)
+        raw_input_float32 = tf.cast(raw_input_uint8, tf.float32)
+        raw_mask = tf.placeholder(tf.float32, shape=[max_time_steps])
 
-    elif input_type == 'seq_video':
-        # shape: [step, depth, height, width, in_channels]
-        num_step = INPUT['num_step']
+    # elif input_type == 'seq_video':
+    #     # shape: [step, depth, height, width, in_channels]
+    #     num_step = INPUT['num_step']
 
-        LABEL_INPUT = tf.placeholder(tf.int32, shape=[num_step])
-        raw_input_uint8 = tf.placeholder(tf.uint8, shape=[num_step]+clip_size)
-        RAW_INPUT_FLOAT32 = tf.cast(raw_input_uint8, tf.float32)
+    #     THIS['label_input'] = tf.placeholder(tf.int32, shape=[num_step])
+    #     raw_input_uint8 = tf.placeholder(tf.uint8, shape=[num_step]+clip_size)
+    #     THIS['raw_input_float32'] = tf.cast(raw_input_uint8, tf.float32)
 
     # visualization clips
     # tf.image_summary('snapshot', raw_input_float32[0])
 
-    return RAW_INPUT_FLOAT32, LABEL_INPUT
+    THIS['raw_input_uint8'] = raw_input_uint8
+    THIS['label_input'] = label_input
+    THIS['raw_mask'] = raw_mask
+
+    return raw_input_float32, label_input, raw_mask, False
+
+
+def build_start_nodes_for_test():
+    """
+    start nodes:
+        * raw_input_uint8
+        * label_input
+    return nodes:
+        * raw_input_float32
+        * label_input
+    """
+    # global variables declare
+    INPUT = FLAGS['input']
+    input_type = INPUT['type']
+    max_time_steps = INPUT['max_time_steps']
+    clip_length = INPUT['clip_length']
+    clip_size = ([clip_length] +
+                 INPUT['read_resolution'] +
+                 [INPUT['num_channel']])
+
+    # raw input nodes
+    if input_type == 'video':
+        # shape: [group, depth, height, width, in_channels]
+        label_input = tf.placeholder(tf.int32, shape=[])
+        raw_input_uint8 = tf.placeholder(tf.uint8,
+                                         shape=[max_time_steps]+clip_size)
+        raw_input_float32 = tf.cast(raw_input_uint8, tf.float32)
+        raw_mask = tf.placeholder(tf.float32, shape=[max_time_steps])
+
+    # elif input_type == 'seq_video':
+    #     # shape: [step, depth, height, width, in_channels]
+    #     num_step = INPUT['num_step']
+
+    #     THIS['label_input'] = tf.placeholder(tf.int32, shape=[num_step])
+    #     raw_input_uint8 = tf.placeholder(tf.uint8, shape=[num_step]+clip_size)
+    #     THIS['raw_input_float32'] = tf.cast(raw_input_uint8, tf.float32)
+
+    # visualization clips
+    # tf.image_summary('snapshot', raw_input_float32[0])
+
+    THIS['raw_input_uint8'] = raw_input_uint8
+    THIS['label_input'] = label_input
+    THIS['raw_mask'] = raw_mask
+
+    return raw_input_float32, label_input, raw_mask, True
 
 
 # if need to launch threads manually
@@ -300,8 +381,12 @@ def create_threads(sess, enqueue_op, coord):
     QUEUE = FLAGS['input_queue']
     num_reader = QUEUE['num_reader']
 
-    return [threading.Thread(target=clip_read_thread,
-                             args=(RAW_INPUT_FLOAT32, LABEL_INPUT,
+    raw_input_uint8 = THIS['raw_input_uint8']
+    label_input = THIS['label_input']
+    raw_mask = THIS['raw_mask']
+
+    return [threading.Thread(target=read_thread,
+                             args=(raw_input_uint8, label_input, raw_mask,
                                    sess, enqueue_op, coord))
             for i in range(num_reader)
             ]

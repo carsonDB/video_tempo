@@ -1,5 +1,6 @@
 """Evaluation for model (single GPU).
 """
+from __future__ import division
 
 from importlib import import_module
 from datetime import datetime
@@ -48,7 +49,7 @@ def eval_once(summary_writer, top_k_op):
         print('No checkpoint file found')
         return
 
-    num_iter = int(math.ceil(1.0*num_examples / batch_size))
+    num_iter = int(math.ceil(num_examples / batch_size))
     true_count = 0  # Counts the number of correct predictions.
     total_sample_count = num_iter * batch_size
     step = 0
@@ -58,13 +59,14 @@ def eval_once(summary_writer, top_k_op):
         # print predictions
         true_count += np.sum(predictions)
 
-        precision = 1.0*true_count / total_sample_count
-        print('step: %d, precision %f' % (step, precision))
+        precision = true_count / total_sample_count
+        if step % 10 == 0:
+            print('step: %d, precision %f' % (step, precision))
 
         step += 1
 
     # Compute precision @ 1.
-    precision = 1.0*true_count / total_sample_count
+    precision = true_count / total_sample_count
     print('%s: precision @ %d = %.3f' % (datetime.now(), num_top, precision))
 
     summary = tf.Summary()
@@ -77,8 +79,8 @@ def eval_once(summary_writer, top_k_op):
     # input_agent.pause()
 
 
-def evaluate(nn):
-    """Eval for one or a number of times."""
+def validate(nn):
+    """validate for one or a number of times."""
 
     # create a session and a coordinator
     config = tf.ConfigProto()
@@ -87,11 +89,13 @@ def evaluate(nn):
     VARS['coord'] = tf.train.Coordinator()
 
     # Build subgraph (reader and preprocesser).
-    inputs, labels = input_agent.read()
+    inputs, labels, masks = input_agent.read()
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
-    logits = nn.inference(inputs)
+    logits = nn.inference(inputs, masks)
+    # Calculate predictions.
+    top_k_op = nn.validate(logits, labels, FLAGS['top'])
 
     # variables postfix with exponentialMovingAverage
     variable_averages = tf.train.ExponentialMovingAverage(
@@ -99,15 +103,44 @@ def evaluate(nn):
     variables_to_restore = variable_averages.variables_to_restore()
     THIS['saver'] = tf.train.Saver(variables_to_restore)
 
-    # Calculate predictions.
-    top_k_op = tf.nn.in_top_k(logits, labels, FLAGS['top'])
-
     # Build the summary operation based on the TF collection of Summaries.
     summary_writer = tf.train.SummaryWriter(FLAGS['eval_dir'], sess.graph)
 
     # Start the queue runners.
     input_agent.launch()
 
+    while True:
+        eval_once(summary_writer, top_k_op)
+        if FLAGS['run_once']:
+            break
+        time.sleep(FLAGS['eval_interval_secs'])
+
+
+def test(nn):
+    """test for one or a number of times."""
+
+    # create a session and a coordinator
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    VARS['sess'] = sess = tf.Session(config=config)
+    VARS['coord'] = tf.train.Coordinator()
+
+    # Build subgraph (reader and preprocesser).
+    inputs, labels, masks = input_agent.read()
+    # Calculate predictions.
+    top_k_op = nn.test(inputs, labels, masks, FLAGS['top'])
+
+    # variables postfix with exponentialMovingAverage
+    variable_averages = tf.train.ExponentialMovingAverage(
+        FLAGS['moving_average_decay'])
+    variables_to_restore = variable_averages.variables_to_restore()
+    THIS['saver'] = tf.train.Saver(variables_to_restore)
+
+    # Build the summary operation based on the TF collection of Summaries.
+    summary_writer = tf.train.SummaryWriter(FLAGS['eval_dir'], sess.graph)
+
+    # Start the queue runners.
+    input_agent.launch()
     while True:
         eval_once(summary_writer, top_k_op)
         if FLAGS['run_once']:
@@ -126,12 +159,13 @@ def main(argv=None):
         tf.gfile.DeleteRecursively(eval_dir)
     tf.gfile.MakeDirs(eval_dir)
 
-    if model_type in ['cnn', 'rnn']:
-        nn = import_module('model.' + model_type)
-        with tf.Graph().as_default():
+    if model_type in ['cnn', 'rnn', 'rnn_static']:
+        nn_package = import_module('model.' + model_type)
+        model = nn_package.Model()
 
+        with tf.Graph().as_default():
             try:
-                evaluate(nn)
+                test(model) if VARS['if_test'] else validate(model)
                 print('eval process closed nomally\n')
             except:
                 traceback.print_exc(file=sys.stdout)

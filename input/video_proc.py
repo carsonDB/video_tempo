@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 
 # input local file
@@ -9,12 +10,17 @@ args:
     clip:
         * video: [depth, height, width, in_channels]
         * seq_video: [num_step, depth, height, width, in_channels]
-
+    group of clips:
+        * videos: [group, depth, height, width, in_channels]
+        * seq_videos: [group, num_step, depth, height, width, in_channels]
 return:
     list of tensors
 """
 
+THIS = {}
 
+
+# deprecated !!!
 def wrapper_per_clip(func):
     """
     Input:
@@ -46,62 +52,122 @@ def wrapper_per_clip(func):
     return inner
 
 
-@wrapper_per_clip
-def resize_video(clip, *args, **kwargs):
+# @wrapper_per_lst...
+def resize_video(clip, op):
     # clip: [depth, height, width, in_channels]
     # return one clip
-    return tf.image.resize_images(clip, *args, **kwargs)
+    raise ValueError('...')
+    return tf.image.resize_images(clip, *op['size'])
 
 
-@wrapper_per_clip
-def random_crop(clip, re_size):
-    # clip: [depth, height, width, in_channels]
-    # return one clip
-    return tf.random_crop(clip, re_size)
+def random_crop(clip_lst, op):
+    # clip_lst: [group, ..., depth, height, width, in_channels]
+    shape = [dim.value for dim in clip_lst.get_shape()]
+    shape[-3:-1] = op['size']
+    return tf.random_crop(clip_lst, shape)
 
 
-@wrapper_per_clip
 def central_crop(clip, *args, **kwargs):
     # clip: [depth, height, width, in_channels]
     # return one clip
+    raise ValueError('...')
     image_lst = tf.unpack(clip)
     return tf.pack([tf.image.central_crop(image, *args, **kwargs)
                     for image in image_lst])
 
 
-@wrapper_per_clip
-def test_crop(clip, re_size):
-    height, width = clip.get_shape()[1].value, clip.get_shape()[2].value
-    re_height, re_width = re_size
-    H_start, W_start = (height - re_height)/2, (width - re_width)/2
-    # central crop
-    return clip[:, H_start:H_start+re_height, W_start:W_start+re_width, :]
+def crop(clip_lst, op):
+    # clip_lst: [group, ..., depth, height, width, in_channels]
+    height, width = clip_lst.get_shape().as_list()[-3:-1]
+    re_height, re_width = op['size']
+
+    if op['pos'] == 'all':
+        pos_lst = ['lt', 'lb', 'rt', 'rb', 'mid']
+    else:
+        pos_lst = [op['pos']]
+
+    start_pos_lst = []
+    if 'mid' in pos_lst:
+        start_pos_lst.append([(height - re_height)/2, (width - re_width)/2])
+    if 'lt' in pos_lst:
+        start_pos_lst.append([0, 0])
+    if 'lb' in pos_lst:
+        start_pos_lst.append([height - re_height, 0])
+    if 'rt' in pos_lst:
+        start_pos_lst.append([0, width - re_width])
+    if 'rb' in pos_lst:
+        start_pos_lst.append([height - re_height, width - re_width])
+
+    # reshape to [..., height, width, in_channels]
+    raw_shape = clip_lst.get_shape().as_list()
+    clip_lst = tf.reshape(clip_lst, [-1] + raw_shape[-3:])
+
+    out_lst = []
+    for H_start, W_start in start_pos_lst:
+        out_lst.append(clip_lst[:, H_start:H_start + re_height,
+                       W_start:W_start + re_width, :])
+
+    raw_shape[-3:-1] = op['size']
+    return tf.reshape(tf.concat(0, out_lst), [-1] + raw_shape[1:])
 
 
-@wrapper_per_clip
-def random_flip_left_right(clip, prob):
-    # clip: [depth, height, width, in_channels]
-    # return one clip
-    image_lst = tf.unpack(clip)
+def random_flip_left_right(clip_lst, op):
+    # clip_lst: [group, ..., depth, height, width, in_channels]
+    # reshape to [..., width, in_channels]
+    raw_shape = clip_lst.get_shape().as_list()
+    clip_lst = tf.reshape(clip_lst, [-1] + raw_shape[-2:])
+
     if_flip = tf.random_uniform([])
-
-    image_lst = tf.cond(if_flip < prob,
-                        lambda: [tf.image.flip_left_right(image)
-                                 for image in image_lst],
-                        lambda: image_lst)
-    return tf.pack(image_lst)
+    clip_lst = tf.cond(if_flip < op['prob'],
+                       lambda: clip_lst[:, ::-1, :],
+                       lambda: clip_lst)
+    return tf.reshape(clip_lst, raw_shape)
 
 
-@wrapper_per_clip
-def subtract_mean(clip):
-    # subtract mean of whole clip
-    return clip - tf.reduce_mean(clip)
+def double_flip_left_right(clip_lst, op):
+    # clip_lst: [group, ..., depth, height, width, in_channels]
+    # reshape to [..., width, in_channels]
+    raw_shape = clip_lst.get_shape().as_list()
+    reshaped = tf.reshape(clip_lst, [-1] + raw_shape[-2:])
+
+    mirror = reshaped[:, ::-1, :]
+
+    return tf.concat(0, [clip_lst, tf.reshape(mirror, raw_shape)])
 
 
-@wrapper_per_clip
+# def _real_length(ts, axis):
+#     used = tf.sign(tf.reduce_max(tf.abs(ts), reduction_indices=axis))
+#     length = tf.reduce_sum(used, reduction_indices=(axis-1))
+#     length = tf.cast(length, tf.int32)
+#     return length
+
+
+def subtract_mean(clip_lst, op):
+    # subtract mean from mean file
+    if 'mean' is not THIS:
+        # load mean file
+        mean_file = FLAGS['input']['mean_file']
+        THIS['mean'] = mean = np.load(mean_file)
+    else:
+        mean = THIS['mean']
+
+    # subtract actual data if time_step exists
+    if clip_lst.get_shape().ndims > 5:
+        # time_step is at [-5]
+        raw_shape = clip_lst.get_shape().as_list()
+        reshaped = tf.reshape(clip_lst, [-1] + raw_shape[-5:])
+        mid_shape = reshaped.get_shape().as_list()
+        reshaped = tf.reshape(reshaped, mid_shape[:2] + [-1])
+        used = tf.sign(tf.reduce_max(tf.abs(reshaped), reduction_indices=2))
+        used = tf.reshape(used, used.get_shape().as_list()+[1])
+        return clip_lst - tf.reshape(used*mean.ravel(), raw_shape)
+    return clip_lst - mean
+
+
 def whitening_per_frame(clip):
     # clip: [depth, height, width, in_channels]
     # return one clip
+    raise ValueError('...')
     image_lst = tf.unpack(clip)
     return tf.pack([tf.image.per_image_whitening(image)
                     for image in image_lst])
@@ -111,6 +177,7 @@ def model_process(clip, *args, **kwargs):
     # clip(must a tensor): [depth, height, width, in_channels]
     # return one clip
     # model should be fed with [batch_size, ...]
+    raise ValueError('...')
 
     rank = len(clip.get_shape())
 
@@ -125,34 +192,42 @@ def model_process(clip, *args, **kwargs):
         raise ValueError('video proc input shape illegal')
 
 
-def proc(example, sess):
-    # preprocess actually based on frames
+TOOLS = {
+    "resize": resize_video,
+    "subtract_mean": subtract_mean,
+    "random_crop": random_crop,
+    "crop": crop,
+    "random_flip_left_right": random_flip_left_right,
+    "double_flip_left_right": double_flip_left_right,
+    "whitening": whitening_per_frame,
+    "__model__": model_process
+}
+
+
+def proc(example, sess, group_head=False):
+    """ preprocess actually based on frames
+    input -> output:
+        * 1 -> 1
+        * 1 -> n
+        * n -> 1 (group_head)
+    """
     PREPROC = FLAGS['preproc']
 
-    # input: a tensor or list of tensors
-    # return: list of tensor
+    # first dimension for multi-generating
+    example_lst = tf.pack([example])
+
     for op in PREPROC:
+        if op['name'] in TOOLS:
+            example_lst = TOOLS[op['name']](example_lst, op)
 
-        if op['name'] == 'resize':
-            example = resize_video(example, *op['size'])
+    # output
+    if group_head is False:
+        if example_lst.get_shape()[0].value == 1:
+            out, is_multi = example_lst[0], False
+        else:
+            out, is_multi = example_lst, True
+    else:
+        # mainly for test
+        out, is_multi = example_lst, False
 
-        elif op['name'] == 'subtract_mean':
-            example = subtract_mean(example)
-
-        elif op['name'] == 'random_crop':
-            example = random_crop(example, op['size'])
-
-        elif op['name'] == 'test_crop':
-            example = test_crop(example, op['size'])
-
-        elif op['name'] == 'flip_left_right':
-            example = random_flip_left_right(example, op['prob'])
-
-        elif op['name'] == 'whitening':
-            example = whitening_per_frame(example)
-
-        elif op['name'] == '__model__':
-            # pretrain model for feature extractor
-            example = model_process(example, op, sess)
-
-    return example
+    return out, is_multi

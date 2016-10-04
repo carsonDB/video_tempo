@@ -17,8 +17,6 @@ def load(config_name, mode=None):
         config = cjson.load(f)
 
     define_link(config)
-    if not mode is None:
-        unroll_key(mode, config)
 
     return config
 
@@ -31,14 +29,27 @@ def init_FLAGS(mode=None):
     parser.add_argument('--clear', dest='if_restart', action='store_const',
                         const=True, default=False,
                         help='if true, then restart training')
+    parser.add_argument('--test', dest='if_test', action='store_const',
+                        const=True, default=False,
+                        help='if true, test. If not, validate')
     args = parser.parse_args()
 
-    config = load(args.config_name, mode)
-
     # mode
-    FLAGS['mode'] = mode
+    VARS['mode'] = mode
     # if restart to train
-    FLAGS['if_restart'] = args.if_restart
+    VARS['if_restart'] = args.if_restart
+    VARS['if_test'] = args.if_test
+
+    config = load(args.config_name, mode)
+    # specific mode variables localize
+    if mode is not None:
+        unroll_key(mode, config)
+    # sub-mode of eval
+    if mode == 'eval':
+        if args.if_test:
+            unroll_key('test', config)
+        else:
+            unroll_key('valid', config)
 
     for k, v in config.iteritems():
         FLAGS[k] = v
@@ -46,6 +57,7 @@ def init_FLAGS(mode=None):
 
 def unroll_key(key, body):
     # arm FLAGS with specific mode (train or eval)
+    key = '@' + key
     if not key in body:
         raise ValueError('no such mode: %s' % key)
 
@@ -92,7 +104,8 @@ VARS = {
 
 def main():
     # for test
-    # set_mode('train')
+    init_FLAGS('eval')
+    print(FLAGS['depth_interval'])
     pass
 
 if __name__ == '__main__':
