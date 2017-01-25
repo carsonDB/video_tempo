@@ -1,0 +1,169 @@
+// temporal part of two_stream_network
+// Details:
+//   CNN-M-2048 of VGG:
+//     (https://gist.github.com/ksimonyan/78047f3591446d1d7b91#file-readme-md)
+// !!! removed the second normalisation layer
+
+// Training:
+// In the temporal net training, we compute an optical flow volume I for the selected training frame as
+// described in Sect. 3. From that volume, a fixed-size 224 × 224 × 2L input is randomly cropped and
+// flipped.
+
+// Evaluation (mean subtraction):
+//   Single-frame optical flow (L = 1): 73.9%
+//   Optical flow stacking (L = 5): 80.4%
+//   Optical flow stacking (L = 10): 81.0%
+
+{
+    // meta info
+    "name": "cifar",
+    "model": "vgg",
+    // input info
+    "input": {
+        // cifar-10 data
+        "reader": "frame_reader",
+        "num_class": 101,
+        // input format: [height, width, channel]
+        "raw_size": [32, 32, 3],
+        "example_size": [24, 24, 3]
+    },
+
+// sharing hyperparameters
+    "batch_size": 129, // real: batch_size / num_gpus
+    // num of gpus when multi-gpus solver runs
+    "gpus": [0, 1, 2],
+    // iterations per summary for tensorboard
+    "step_per_summary": 100,
+    // iterations per save ckpt
+    "step_per_ckpt": 1000,
+    // optimizer
+    "optimizer": {
+        "name": "GradientDescent"
+        // "name": "momentum",
+        // "args": {
+        //     "momentum": 0.9
+        // }
+    },
+    // decay factor for learning_rate and weight decay
+    "decay_factor": 0.1,
+    // The decay to use for the moving average
+    "moving_average_decay": 0.9999,
+    // Directory where to read model checkpoints
+    "ckpt_dir": "/tmp/cifar_train",
+
+    // train info
+    "@train": {
+        // content: path + label_id
+        "data_path": "/home/wsy/dataset/cifar_10/cifar-10-batches-bin",
+        "initial_learning_rate": 0.1,
+        // total iterations
+        "max_steps": 1000000,
+        // learning rate and weight decay decrease
+        "num_steps_per_decay": 136718,
+        // checkpoint after train
+        "dest_dir": "/tmp/cifar_train",
+        // enqueue info
+        "input_queue": {
+            // "FIFO" or "shuffle" queue
+            "type": "shuffle",
+            "capacity": 20384,
+            "min_remain": 20000,
+            "num_thread": 16
+        }
+    },
+    // eval info
+    "@eval": {
+        // content: path + label_id
+        "data_path": "/home/wsy/dataset/cifar_10/cifar-10-batches-bin",
+        // Directory where to write event logs
+        "dest_dir": "/tmp/cifar_test",
+        // How often to run the eval if run_once == false
+        "eval_interval_secs": 60,
+        // Number of examples to run
+        "num_examples": 10000,
+        // top n precision
+        "top": 1,
+        // Whether to run eval only once
+        "run_once": false,
+        // "num_examples_per_epoch": 10000,
+        // enqueue info
+        "input_queue": {
+            // "FIFO" or "shuffle" queue
+            "type": "FIFO",
+            "capacity": 4384,
+            "num_thread": 1
+        },
+        "batch_size": 128
+    },
+
+    // graph info
+    "layers": [
+        "CONV_5x5_K64", "POOL_3x3_S2", "LRN",
+        "CONV_5x5_K64", "LRN", "POOL_3x3_S2",
+        "FC_D384", "FC_D192"
+    ],
+
+    // output info
+    "output": {
+
+    },
+
+    // Macros below
+    // parameters-format in correspondence with Tensorflow_api
+    "__define__": {
+        "CONV_5x5_K64": {
+            // input Shape [in_height, in_width, in_channels].
+            "type": "conv2d",
+            // filter Shape [filter_height, filter_width, in_channels, out_channels]
+                // in_channels: RGB
+                //          or optical flow (x or y)
+                //          or number of last conv layer filters
+                // out_channels: number of filters
+            "filter": [5, 5, -1, 64],
+            "init_stddev": 0.05,
+            // same format with input
+            "strides": [1, 1, 1, 1],
+            // depth, height, width
+            "padding": "SAME",
+            "weight_decay": 0.0
+            // default follow with RELU
+        },
+        "POOL_3x3_S2": {
+            "type": "max_pool2d",
+            // first and last must '1'
+            // middle: [height, width]
+            "ksize": [1, 3, 3, 1],
+            "strides": [1, 2, 2, 1],
+            "padding": "SAME"
+        },
+        "LRN": {
+            "type": "lrn",
+            "depth_radius": 4,
+            "bias": 1.0,
+            "alpha": 0.0001,
+            "beta": 0.75
+        },
+        "FC_D384": {
+            "type": "fc",
+            // -1 means auto-compute
+            "shape": [-1, 384],
+            "init_stddev": 0.04, // init for weights
+            "weight_decay": 0.004, // decrease sync with learning rate
+            "init_bias": 0.1
+            // default follow with RELU
+        },
+        "FC_D192": {
+            "type": "fc",
+            // -1 means auto-compute
+            "shape": [-1, 192],
+            "init_stddev": 0.04,
+            "weight_decay": 0.004, // decrease sync with learning rate
+            "init_bias": 0.1
+            // default follow with RELU
+        }
+        // "DROPOUT": {
+        //     "type": "dropout",
+        //     "prob": 0.5
+        // }
+    }
+}

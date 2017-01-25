@@ -1,18 +1,18 @@
 # Intro
-made up of two parts:
+Two examples:
 1. 3D convolution neural network.
-2. Recurrent neural network. (beta)
+2. two stream network.
 
-PS: I've tested codes through UCF-11 dataset.
+PS: tested codes through UCF-11 dataset.
 
 # Package Used
   * commentjson
   * OpenCV (v3.1.0)
-  * tensorflow (v0.10)
+  * tensorflow (v0.11)
 
 # Util
   * You can use **gen_lst.py** to generate lists of videos with labels.
-  
+
   e.g.
   ```
     python util/gen_lst.py  /your/video/directory  /your/destination/path
@@ -30,7 +30,7 @@ PS: I've tested codes through UCF-11 dataset.
 
 # Train
   Call the `train.py` script with json filename(without `".json"`).
-  
+
   ## train from scratch
 
   e.g.
@@ -39,17 +39,23 @@ PS: I've tested codes through UCF-11 dataset.
   ```
 
   ## fine-tuning
-  
+
   e.g.
   ```
     python train.py C3D
   ```
- 
+
 
 # Evaluation (beta)
   Call the `eval.py` script with json filename(without `".json"`).
-  
+
   e.g.
   ```
     python eval.py C3D
   ```
+
+# TODO
+- preprocess data
+- graph to alexnet
+- weight_decay
+- iter_size

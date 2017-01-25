@@ -1,6 +1,14 @@
+from __future__ import division
 import os
+import re
 import commentjson as cjson
 import argparse
+
+
+def clean_json(string):
+    string = re.sub(",[ \t\r\n]+}", "}", string)
+    string = re.sub(",[ \t\r\n]+\]", "]", string)
+    return string
 
 
 def load(config_name, mode=None):
@@ -14,7 +22,8 @@ def load(config_name, mode=None):
                          % file_path)
 
     with open(file_path) as f:
-        config = cjson.load(f)
+        json_str = clean_json(f.read())
+        config = cjson.loads(json_str)
 
     define_link(config)
 
@@ -44,12 +53,12 @@ def init_FLAGS(mode=None):
     # specific mode variables localize
     if mode is not None:
         unroll_key(mode, config)
-    # sub-mode of eval
-    if mode == 'eval':
-        if args.if_test:
-            unroll_key('test', config)
-        else:
-            unroll_key('valid', config)
+    # # sub-mode of eval
+    # if mode == 'eval':
+    #     if args.if_test:
+    #         unroll_key('test', config)
+    #     else:
+    #         unroll_key('valid', config)
 
     for k, v in config.iteritems():
         FLAGS[k] = v
@@ -98,7 +107,8 @@ FLAGS = {}
 # global variable(build-time vars) cross modeuls
 VARS = {
     'threads': [],
-    'queues': []
+    'queues': [],
+    'output': {}
 }
 
 

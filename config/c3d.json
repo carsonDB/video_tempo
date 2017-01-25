@@ -1,0 +1,191 @@
+{
+    // meta info
+    "name": "c3d",
+    "model": "cnn",
+    // input info
+    "input": {
+        // UCF-101 data
+        "reader": "frame_reader",
+        // "mean_file": "~/dataset/ucf_101/train01_mean.npy",
+        "num_class": 101,
+        // input format: [depth, height, width, channel]
+        "raw_size": [16, 256, 256, 3],
+        "example_size": [16, 112, 112, 3]
+    },
+
+// sharing hyperparameters
+    "batch_size": 30, // real: batch_size / num_gpus
+    // num of gpus when multi-gpus solver runs
+    "gpus": [0, 1, 2],
+    // optimizer
+    "optimizer": {
+        "name": "momentum",
+        "args": {
+            "momentum": 0.9
+        }
+    },
+    // decay factor for learning_rate and weight decay
+    "decay_factor": 0.1,
+    // The decay to use for the moving average
+    "moving_average_decay": 0.999,
+    // Directory where to read train checkpoints
+    "ckpt_dir": "/tmp/c3d_train",
+
+    // train info
+    "@train": {
+        // content: path + label_id
+        "lst_path": "/home/user/data/train_rgb_ucf101_sp1.lst",
+        "initial_learning_rate": 0.003,
+        // total iterations
+        "max_steps": 60000,
+        // learning rate and weight decay decrease
+        "num_steps_per_decay": 20000,
+        // checkpoint after train
+        "dest_dir": "/tmp/c3d_train",
+        // enqueue info
+        "input_queue": {
+            // "FIFO" or "shuffle" queue
+            "type": "FIFO",
+            "capacity": 200,
+            // "min_remain": 30,
+            "num_reader": 20
+        }
+    },
+    // eval info
+    "@eval": {
+        // content: path + label_id
+        "lst_path": "/home/user/data/test_rgb_ucf101_sp1.lst",
+        // Directory where to write event logs
+        "dest_dir": "/tmp/c3d_test",
+        // How often to run the eval if run_once == false
+        "eval_interval_secs": 300,
+        // Number of examples to run
+        "num_examples": 4000,
+        // top n precision
+        "top": 1,
+        // Whether to run eval only once
+        "run_once": false,
+        "num_examples_per_epoch": 4000,
+        // enqueue info
+        "input_queue": {
+            // "FIFO" or "shuffle" queue
+            "type": "FIFO",
+            "capacity": 100,
+            "num_reader": 1
+        },
+        // two modes (example, group of examples)
+        "@valid": {
+            "batch_size": 50
+        },
+        "@test": {
+            "depth_interval": 30,
+            "batch_size": 1
+        }
+    },
+
+    // graph info
+    "layers": [
+        "CONV3_K64", "POOL3_T1",
+        "CONV3_K128", "POOL3_T2",
+
+        "CONV3_K256", "POOL3_T2",
+        "CONV3_K256", "POOL3_T2",
+        "CONV3_K256", "POOL3_T2",
+
+        "FC", "DROPOUT",
+        "FC", "DROPOUT"
+    ],
+
+    // output info
+    "output": {
+
+    },
+
+    // Macros below
+    // parameters-format in correspondence with Tensorflow_api
+    "__define__": {
+
+        "CONV3_K64": {
+            // input Shape [in_depth, in_height, in_width, in_channels].
+            // output Shape ==? input Shape
+            "type": "conv3d",
+            // filter Shape [filter_depth, filter_height, filter_width, in_channels, out_channels]
+                // in_channels: RGB
+                //          or optical flow (x or y)
+                //          or number of last conv layer filters
+                // out_channels: number of filters
+            "filter": [3, 3, 3, -1, 64],
+            "init_stddev": 0.01,
+            // same format with input
+            "strides": [1, 1, 1, 1, 1],
+            // depth, height, width
+            "padding": [[1, 1], [1, 1], [1, 1]],
+            "weight_decay": 0.005
+            // default follow with RELU
+        },
+        "CONV3_K128": {
+            // input Shape [in_depth, in_height, in_width, in_channels].
+            // output Shape ==? input Shape
+            "type": "conv3d",
+            // filter Shape [filter_depth, filter_height, filter_width, in_channels, out_channels]
+                // in_channels: RGB
+                //          or optical flow (x or y)
+                //          or number of last conv layer filters
+                // out_channels: number of filters
+            "filter": [3, 3, 3, -1, 128],
+            "init_stddev": 0.01,
+            // same format with input
+            "strides": [1, 1, 1, 1, 1],
+            // depth, height, width
+            "padding": [[1, 1], [1, 1], [1, 1]],
+            "weight_decay": 0.005
+            // default follow with RELU
+        },
+        "CONV3_K256": {
+            // input Shape [in_depth, in_height, in_width, in_channels].
+            // output Shape ==? input Shape
+            "type": "conv3d",
+            // filter Shape [filter_depth, filter_height, filter_width, in_channels, out_channels]
+                // in_channels: RGB
+                //          or optical flow (x or y)
+                //          or number of last conv layer filters
+                // out_channels: number of filters
+            "filter": [3, 3, 3, -1, 256],
+            "init_stddev": 0.01,
+            // same format with input
+            "strides": [1, 1, 1, 1, 1],
+            // depth, height, width
+            "padding": [[1, 1], [1, 1], [1, 1]],
+            "weight_decay": 0.005
+            // default follow with RELU
+        },
+
+        "POOL3_T1": {
+            "type": "max_pool3d",
+            // first and last must '1'
+            // middle: [depth, height, width]
+            "ksize": [1, 1, 2, 2, 1],
+            "strides": [1, 1, 2, 2, 1],
+            "padding": "VALID"
+        },
+        "POOL3_T2": {
+            "type": "max_pool3d",
+            // first and last must '1'
+            "ksize": [1, 2, 2, 2, 1],
+            "strides": [1, 2, 2, 2, 1],
+            "padding": "VALID"
+        },
+        "FC": {
+            "type": "fc",
+            // -1 means auto-compute
+            "shape": [-1, 2048],
+            "init_stddev": 0.005,
+            "weight_decay": 0.005 // decrease sync with learning rate
+            // default follow with RELU
+        },
+        "DROPOUT": {
+            "type": "dropout",
+            "prob": 0.5
+        }
+    }
+}

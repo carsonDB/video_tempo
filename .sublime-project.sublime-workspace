@@ -1,0 +1,588 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"que",
+				"queue_state"
+			],
+			[
+				"summ",
+				"summaries"
+			],
+			[
+				"learnin",
+				"learning_rate"
+			],
+			[
+				"weigh",
+				"weight_decay"
+			],
+			[
+				"vid",
+				"video2class"
+			],
+			[
+				"output",
+				"output_path"
+			],
+			[
+				"ex",
+				"example_lst"
+			],
+			[
+				"OU",
+				"Output_solver"
+			],
+			[
+				"Ou",
+				"Output_solver"
+			],
+			[
+				"cro",
+				"cropped_X"
+			],
+			[
+				"fli",
+				"flipped_X"
+			],
+			[
+				"cr",
+				"cropped_X"
+			],
+			[
+				"fol",
+				"float_X"
+			],
+			[
+				"float",
+				"float_X"
+			],
+			[
+				"raw",
+				"raw_X"
+			],
+			[
+				"pre",
+				"predicted_np_lst"
+			],
+			[
+				"cl",
+				"clean_json"
+			],
+			[
+				"vi",
+				"video_name"
+			],
+			[
+				"src",
+				"src_path"
+			],
+			[
+				"de",
+				"dest_path"
+			],
+			[
+				"classin",
+				"classInd_path"
+			],
+			[
+				"class",
+				"classInd_path"
+			],
+			[
+				"clas",
+				"classInd_path"
+			],
+			[
+				"steppe",
+				"step_per_ckpt"
+			],
+			[
+				"set",
+				"step_per_summary"
+			],
+			[
+				"__",
+				"__init__"
+			],
+			[
+				"Mo",
+				"Model"
+			],
+			[
+				"Mod",
+				"Model_proto"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "inputs/spatial_reader.py",
+			"settings":
+			{
+				"buffer_size": 6835,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "/home/carson/proj/tempo/train.py",
+			"settings":
+			{
+				"buffer_size": 3258,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": ".sublime-project",
+			"settings":
+			{
+				"buffer_size": 647,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "config/spatial_cnn.json",
+			"settings":
+			{
+				"buffer_size": 6713,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 392.0,
+		"last_filter": "list",
+		"selected_items":
+		[
+			[
+				"list",
+				"Package Control: List Packages"
+			],
+			[
+				"re",
+				"Package Control: Remove Package"
+			],
+			[
+				"in",
+				"Package Control: Install Package"
+			],
+			[
+				"ins",
+				"Package Control: Install Package"
+			],
+			[
+				"lis",
+				"Package Control: List Packages"
+			],
+			[
+				"remo",
+				"Package Control: Remove Package"
+			],
+			[
+				"Package Control: ",
+				"Package Control: Remove Package"
+			]
+		],
+		"width": 449.0
+	},
+	"console":
+	{
+		"height": 126.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/home/wsy/proj/video_tempo"
+	],
+	"file_history":
+	[
+		"/home/carson/proj/video_tempo/.sublime-project",
+		"/home/carson/proj/video_tempo/solver.py",
+		"/home/carson/proj/video_tempo/multi_gpu_train.py",
+		"/home/carson/proj/video_tempo/train.py",
+		"/home/carson/proj/video_tempo/models/vgg.py",
+		"/home/carson/proj/video_tempo/models/model_proto.py",
+		"/home/carson/proj/video_tempo/models/cnn.py",
+		"/home/carson/proj/video_tempo/inputs/spatial_reader.py",
+		"/home/carson/proj/video_tempo/config/spatial_cnn.json",
+		"/home/carson/proj/video_tempo/predict.py",
+		"/home/carson/proj/video_tempo/inputs/input_proto.py",
+		"/home/carson/proj/tempo/inputs/input_proto.py",
+		"/home/carson/proj/tempo/models/cnn.py",
+		"/home/carson/proj/video_tempo/eval.py",
+		"/home/carson/proj/video_tempo/kits.py",
+		"/home/carson/proj/tempo/multi_gpu_train.py",
+		"/home/carson/proj/tempo/predict.py",
+		"/home/carson/proj/tempo/solver.py",
+		"/home/carson/proj/tempo/train.py",
+		"/home/carson/.config/sublime-text-3/Packages/User/PythonBreakpoints.sublime-settings",
+		"/home/carson/.config/sublime-text-3/Packages/Python Breakpoints/PythonBreakpoints.sublime-settings",
+		"/home/carson/.config/sublime-text-3/Packages/Package Control/Package Control.sublime-settings",
+		"/home/carson/proj/tempo/config/cnn.json",
+		"/home/carson/proj/tempo/models/model_proto.py",
+		"/home/carson/proj/video_tempo/video_test.py",
+		"/home/carson/proj/video_tempo/scripts/_list_to_json.py",
+		"/home/carson/proj/video_tempo/inputs/proc_kits.py",
+		"/home/carson/.config/sublime-text-3/Packages/User/RSync.sublime-settings",
+		"/home/carson/.config/sublime-text-3/Packages/RSync/RSync.sublime-settings",
+		"/home/carson/proj/.sublime-project",
+		"/home/carson/.config/sublime-text-3/Packages/User/Package Control.sublime-settings",
+		"/home/carson/proj/video_tempo/RSync.sublime-settings",
+		"/home/carson/proj/video_tempo/sftp-config.json",
+		"/home/carson/proj/action_caffe/models/action_recognition/vgg_16_rgb_train_val_fast.prototxt",
+		"/home/carson/proj/cifar10/cifar10_input.py",
+		"/media/node/proj/two_stream_tempo/play.py",
+		"/media/node/proj/two_stream_tempo/inputs/input_proto.py",
+		"/media/node/proj/two_stream_tempo/models/vgg.py",
+		"/media/node/proj/two_stream_tempo/config/config_agent.py",
+		"/media/node/proj/two_stream_tempo/predict.py",
+		"/media/node/proj/two_stream_tempo/inputs/csv_reader.py",
+		"/media/node/proj/two_stream_tempo/config/spatial_cnn.json",
+		"/media/node/proj/two_stream_tempo/models/cnn.py",
+		"/media/node/proj/two_stream_tempo/multi_gpu_train.py",
+		"/media/node/proj/two_stream_tempo/eval.py",
+		"/media/node/proj/two_stream_tempo/train.py",
+		"/media/node/proj/tempo/inputs/cifar_reader.py",
+		"/media/node/proj/two_stream_tempo/scripts/_list_to_csv_with_seq.py",
+		"/media/node/proj/attend_tempo/config/attend.json",
+		"/media/node/proj/attend_tempo/train.py",
+		"/media/node/proj/attend_tempo/models/rnn_static.py",
+		"/media/node/proj/attend_tempo/eval.py",
+		"/media/node/proj/attend_tempo/models/model_proto.py",
+		"/media/node/proj/attend_tempo/inputs/input_proto.py",
+		"/media/node/proj/attend_tempo/inputs/tfrecord_reader.py",
+		"/media/node/proj/attend_tempo/models/rnn.py",
+		"/media/node/proj/attend_tempo/inputs/cifar_reader.py",
+		"/media/node/proj/attend_tempo/models/cnn.py",
+		"/media/node/proj/attend_tempo/kits.py",
+		"/media/node/proj/attend_tempo/play.py",
+		"/media/node/proj/attend_tempo/predict.py",
+		"/media/node/proj/attend_tempo/solver.py",
+		"/media/node/proj/attend_tempo/multi_gpu_train.py",
+		"/media/node/dataset/ucf_11/googlenet_lastConv_feature/h5_to_tfrecord_check.py",
+		"/media/node/proj/tempo/inputs/input_proto.py",
+		"/home/carson/bin/up",
+		"/media/node/proj/tempo/solver.py",
+		"/home/carson/.config/terminator/config"
+	],
+	"find":
+	{
+		"height": 38.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"split_batch_size",
+			"/",
+			"decay_factor",
+			"weight_decay",
+			"tmp",
+			"temp",
+			"print",
+			"temp",
+			"import",
+			"\n\t\t\t\t",
+			"\n            ",
+			"import",
+			"\n                ",
+			"import",
+			"\n        ",
+			"\n            ",
+			"import",
+			"name2id",
+			"0",
+			"ckpt",
+			"\"\"\"",
+			"\n            ",
+			")\n",
+			"])"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 2,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "inputs/spatial_reader.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6835,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								6272,
+								6272
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": -0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "/home/carson/proj/tempo/train.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 3258,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 306.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": ".sublime-project",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 647,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								60,
+								60
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				}
+			]
+		},
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 3,
+					"file": "config/spatial_cnn.json",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6713,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								3606,
+								3606
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JSON.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 1117.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 23.0
+	},
+	"input":
+	{
+		"height": 31.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			],
+			[
+				1,
+				0,
+				2,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			0.6240632806,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"output.sftp":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "",
+	"project": ".sublime-project",
+	"replace":
+	{
+		"height": 46.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"proki",
+				"video_tempo/inputs/proc_kits.py"
+			],
+			[
+				"spa",
+				"config/spatial_cnn.json"
+			],
+			[
+				"cifarea",
+				"tempo/inputs/cifar_reader.py"
+			],
+			[
+				"sol",
+				"solver.py"
+			]
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 165.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}
