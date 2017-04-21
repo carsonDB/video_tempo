@@ -1,0 +1,95 @@
+# spatial_cnn part of two_stream_network
+# iter-1000: eval ~= 0.72
+# iter-10,000: eval ~= 0.76
+
+# meta info
+name: "spatial_part_of_two_stream_cnn"
+model: "vgg16"
+# one of [debug, fast, profile]
+run_mode: "fast"
+profile_log: "./log/vgg16_rgb_timeline.json"
+
+# input info
+input:
+  # ucf101_rgb
+  reader: "spatial_reader"
+  # reader: "fast_video_reader"
+  num_class: 101
+  # input format: [height, width, channel]
+  # "scaled_to": 256, # smaller side scaled to 256 with ratio unchanged
+  # "mean_npy": "/home/wsy/ckpt/vgg/VGG_mean.npy"
+  raw_size: [256, 340, 3] # color image
+  example_size: [224, 224, 3] # last dimension: color_channel * seq_len
+  seq_len: 1 # num of frames
+
+# sharing hyperparameters
+batch_size: 256  # real_batch_size: batch_size / num_gpus / iter_size
+iter_size: 2 # apply grads per iter_size inputs and that counts as 1 iteration.
+
+# num of gpus when multi-gpus solver runs
+gpus: [0, 1, 2, 3]
+# iterations per summary for tensorboard
+step_per_summary: 100
+# iterations per saving ckpt
+step_per_ckpt: 1000
+# optimizer
+optimizer:
+  name: "Momentum"
+  args:
+    momentum: 0.9
+# decay factor for learning_rate and weight decay
+decay_factor: 0.1
+# Directory where to read model checkpoints
+ckpt_dir: "/tmp/vgg16_rgb_train"
+
+# train info
+'@train':
+  # content: path + label_id
+  data_path: "./data/ucf_101/trainlist01.json"
+  # data_path: "./data/ucf_101/train_rgb_split1.txt"
+  initial_learning_rate: 0.001
+  # total iterations
+  max_steps: 10000
+  # learning rate and weight decay decrease
+  num_steps_per_decay: 4000
+  # checkpoint after train
+  dest_dir: "/tmp/vgg16_rgb_train"
+  # enqueue info
+  input_queue:
+    # "FIFO" or "shuffle" queue
+    type: "FIFO"
+    capacity: 100
+    num_thread: 20
+
+# eval info
+'@eval':
+  # content: path + label_id
+  data_path: "./data/ucf_101/testlist01.json"
+  # data_path: "./data/ucf_101/val_rgb_split1.txt"
+  # Directory where to write event logs
+  dest_dir: "/tmp/vgg16_rgb_test"
+  # How often to run the eval if run_once == false
+  eval_interval_secs: 300
+  # Number of examples to run
+  num_examples: 3400
+  # top n precision
+  top: 1
+  # Whether to run eval only once
+  run_once: false
+  batch_size: 10 # always iter_size: 1
+  # enqueue info
+  input_queue:
+    # "FIFO" or "shuffle" queue
+    type: "FIFO"
+    capacity: 5
+    num_thread: 1
+  # Below used for video_test.py
+  # extract frames from video with equal space
+  num_per_video: 25
+
+# model info (vgg16)
+model_config:
+  # init model weights several ways (ckpt, npy, hdf5):
+  # init_weights: "./ckpts/vgg16_action_rgb_pretrain_v2.npy"
+  init_weights: "./ckpts/vgg_16.ckpt"
+  dropout: 0.9

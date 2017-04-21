@@ -1,19 +1,13 @@
 from __future__ import division
 import os
 import re
-import commentjson as cjson
+import cson
 import argparse
-
-
-def clean_json(string):
-    string = re.sub(",[ \t\r\n]+}", "}", string)
-    string = re.sub(",[ \t\r\n]+\]", "]", string)
-    return string
 
 
 def load(config_name, mode=None):
     # load from a config.json
-    file_name = config_name + '.json'
+    file_name = config_name + '.cson'
     file_dir = os.path.dirname(os.path.realpath(__file__))
     file_path = os.path.join(file_dir, file_name)
 
@@ -22,8 +16,7 @@ def load(config_name, mode=None):
                          % file_path)
 
     with open(file_path) as f:
-        json_str = clean_json(f.read())
-        config = cjson.loads(json_str)
+        config = cson.load(f)
 
     define_link(config)
 
@@ -43,8 +36,9 @@ def init_FLAGS(mode=None):
                         help='if true, test. If not, validate')
     args = parser.parse_args()
 
-    # mode
-    VARS['mode'] = mode
+    # # mode
+    # VARS['mode'] = mode
+
     # if restart to train
     VARS['if_restart'] = args.if_restart
     VARS['if_test'] = args.if_test
@@ -108,15 +102,17 @@ FLAGS = {}
 VARS = {
     'threads': [],
     'queues': [],
-    'output': {}
+    'output': {},
+    'queue_runners': [],
+    'summaries': {}
 }
 
 
 def main():
-    # for test
+    # only for code test
     init_FLAGS('eval')
-    print(FLAGS['depth_interval'])
-    pass
+    print(FLAGS['num_per_video'])
+    print(FLAGS['__define__']['DROPOUT'])
 
 if __name__ == '__main__':
     main()

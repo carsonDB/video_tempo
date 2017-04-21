@@ -1,32 +1,20 @@
 # Intro
 Two examples:
-1. 3D convolution neural network.
-2. two stream network.
+1. 3D convolution neural network. (C3D)
+2. two stream network. (vgg16)
 
-PS: tested codes through UCF-11 dataset.
+PS: tested through UCF-101 dataset.
 
 # Package Used
-  * commentjson
-  * OpenCV (v3.1.0)
-  * tensorflow (v0.11)
+  * cson
+  * OpenCV
+  * tensorflow (v1.0)
 
 # Util
-  * You can use **gen_lst.py** to generate lists of videos with labels.
-
-  e.g.
-  ```
-    python util/gen_lst.py  /your/video/directory  /your/destination/path
-  ```
+  * You can use `./tools/_list_to_json.py` to generate lists of videos with labels.
 
 # Configuration
-  Tuning json files in **config** directory to modify your model.
-
-# Preprocess support:
-  * resize clips
-  * random crop
-  * flip horizontally
-  * whitening per frame
-  * cnn pretrained model
+  Tuning cson files in `./config` directory to modify your model.
 
 # Train
   Call the `train.py` script with json filename(without `".json"`).
@@ -35,27 +23,22 @@ PS: tested codes through UCF-11 dataset.
 
   e.g.
   ```
-    python train.py C3D --clear
+    python train.py c3d --clear
   ```
 
   ## fine-tuning
 
   e.g.
   ```
-    python train.py C3D
+    python train.py c3d
   ```
 
-
-# Evaluation (beta)
-  Call the `eval.py` script with json filename(without `".json"`).
-
-  e.g.
+# Validation
   ```
-    python eval.py C3D
+    python eval.py c3d
   ```
 
-# TODO
-- preprocess data
-- graph to alexnet
-- weight_decay
-- iter_size
+# Test
+```
+  python -m tools.video_test c3d
+```

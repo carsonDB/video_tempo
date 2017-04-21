@@ -1,0 +1,91 @@
+# resnet 101 (spatial line of two stream)
+#   reference: https://github.com/tensorflow/models/tree/master/resnet
+
+# meta info
+name: "resnet_101"
+model: "res101"
+# debug or fast(no debug info)
+run_mode: "fast"
+
+# input info
+input:
+  # ucf101_rgb
+  reader: "spatial_reader"
+  num_class: 101
+  # input format: [height, width, channel]
+  # "scaled_to": 256, # smaller side scaled to 256 with ratio unchanged
+  raw_size: [256, 340, 3] # color image
+  example_size: [224, 224, 3] # last dimension: color_channel * seq_len
+  seq_len: 1 # num of frames
+
+# sharing hyperparameters
+batch_size: 128 # real_batch_size: batch_size / num_gpus / iter_size
+iter_size: 1 # apply grads per iter_size inputs and that counts as 1 iteration.
+
+# num of gpus when multi-gpus solver runs
+gpus: [0, 1, 2, 3]
+# iterations per summary for tensorboard
+step_per_summary: 100
+# iterations per saving ckpt
+step_per_ckpt: 1000
+# optimizer
+optimizer:
+  name: "Adam"
+  args: {}
+
+# decay factor for learning_rate and weight decay
+decay_factor: 0.1
+# Directory where to read model checkpoints
+ckpt_dir: "/tmp/res101_rgb_train"
+
+# train info
+'@train':
+  # content: path + label_id
+  data_path: "./data/ucf_101/trainlist01.json"
+  initial_learning_rate: 0.000005
+  # total iterations
+  max_steps: 1000000
+  # learning rate and weight decay decrease
+  num_steps_per_decay: 100000
+  # checkpoint after train
+  dest_dir: "/tmp/res101_rgb_train"
+  # enqueue info
+  input_queue:
+    # "FIFO" or "shuffle" queue
+    type: "FIFO"
+    capacity: 800
+    num_thread: 40
+
+# eval info
+'@eval':
+  # content: path + label_id
+  data_path: "./data/ucf_101/testlist01.json"
+  # Directory where to write event logs
+  dest_dir: "/tmp/res101_rgb_test"
+  # How often to run the eval if run_once == false
+  eval_interval_secs: 600
+  # Number of examples to run
+  num_examples: 3400
+  # top n precision
+  top: 1
+  # Whether to run eval only once
+  run_once: false
+  batch_size: 10 # always iter_size: 1
+  # enqueue info
+  input_queue:
+    # "FIFO" or "shuffle" queue
+    type: "FIFO"
+    capacity: 5
+    num_thread: 1
+  # Below used for video_test.py
+  # extract frames from video with equal space
+  num_per_video: 25
+  # # output info (for predict.py)
+  # output_path: "./data/two_stream/scaled_logits.hdf5"
+  # output: ["name", "scaled_logits"]
+
+# model info (res101)
+model_config:
+  # init model weights several ways (ckpt, npy, hdf5):
+  init_weights: "./ckpts/resnet_v1_101.ckpt"
+  dropout: 0.9

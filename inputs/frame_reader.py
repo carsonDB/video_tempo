@@ -1,3 +1,4 @@
+raise ValueError('fix somewhere')
 """frame_reader for clips
 Raw_data format: every video consists of frames.
 Output_data format:
@@ -57,11 +58,11 @@ def read_rgb(frm_dir, example_size, interval=None):
         max_time_steps = FLAGS['input']['max_time_steps']
         # limit number of clips <= max_time_steps
         num_clip = min(max_time_steps,
-                       (len_frame - clip_len)//interval + 1)
+                       (len_frame - clip_len) // interval + 1)
 
         start_id = 0
-        out_lst = [cut_out(frame_lst[start_id + i*interval:
-                                     start_id + i*interval + clip_len])
+        out_lst = [cut_out(frame_lst[start_id + i * interval:
+                                     start_id + i * interval + clip_len])
                    for i in range(num_clip)]
     else:
         start_id = random.randint(0, len(frame_lst) - clip_len)
@@ -75,6 +76,7 @@ class Reader(Input_proto):
     """read frames of videos
 
     """
+
     def __init__(self):
         super(Reader, self).__init__()
         self.lst_path = os.path.expanduser(FLAGS['lst_path'])

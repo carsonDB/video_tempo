@@ -1,5 +1,5 @@
+from __future__ import print_function
 from __future__ import division
-import threading
 import tensorflow as tf
 
 from config.config_agent import FLAGS, VARS
@@ -18,13 +18,16 @@ class Input_proto(object):
         self.INPUT = FLAGS['input']
         self.queue_type = self.QUEUE['type']
         self.capacity = self.QUEUE['capacity']
-        self.batch_size = FLAGS['batch_size']
+        self.input_batch_size = VARS['input_batch_size']
         self.num_thread = self.QUEUE['num_thread']
         self.num_class = self.INPUT['num_class']
         self.example_size = self.INPUT['example_size']
         self.sess = VARS['sess']
         self.coord = VARS['coord']
         self.if_test = VARS['if_test']
+
+        self.py_threads = []
+        self.tf_threads = []
 
     def read(self):
         # build start nodes (e.g. placeholder) and preprocesss
@@ -35,6 +38,7 @@ class Input_proto(object):
 
         # create reading threads
         self.threads = self.create_threads()
+        self.close_op = self.queue.close(cancel_pending_enqueues=True)
 
         return inputs_batch
 
@@ -58,32 +62,26 @@ class Input_proto(object):
 
         self.queue = q
         # queue add to tensorboard
-        self.queue_state = q.size() / self.capacity
-        tf.summary.scalar('queue', self.queue_state)
+        self.queue_state = q.size() / self.capacity  # multi-gpus
 
         # enqueue an example
         self.enqueue_op = q.enqueue(inputs)
         # dequeue a batch of examples
-        inputs_batch = q.dequeue_many(self.batch_size)
+        inputs_batch = q.dequeue_many(self.input_batch_size)
 
         return inputs_batch
 
-    def create_threads(self):
-        num_thread = self.QUEUE['num_thread']
-        return [threading.Thread(target=self.read_thread)
-                for i in range(num_thread)
-                ]
-
     def launch(self):
-        # start queue runners
-        tf.train.start_queue_runners(self.sess, self.coord)
+        # start tensorflow queue_runners
+        self.tf_threads = tf.train.start_queue_runners(
+            sess=self.sess, coord=self.coord)
         # start customed runners
-        for t in self.threads:
+        for t in self.py_threads:
             t.start()
 
     def close(self):
         # disable equeue op, in case of readers blocking
         self.coord.request_stop()
-        self.sess.run(self.queue.close(cancel_pending_enqueues=True))
-        self.coord.join(self.threads)
+        self.sess.run(self.close_op)
+        self.coord.join(self.py_threads + self.tf_threads)
         self.sess.close()

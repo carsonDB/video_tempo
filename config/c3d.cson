@@ -1,0 +1,108 @@
+# Reference: https://github.com/hx173149/C3D-tensorflow
+
+# meta info
+name: "c3d"
+model: "c3d"
+# debug or fast(no debug info)
+run_mode: "fast"
+
+# input info
+input:
+  # ucf101_rgb
+  reader: "spatial_reader"
+  num_class: 101
+  # input format: [height, width, channel]
+  # "scaled_to": 256, # smaller side scaled to 256 with ratio unchanged
+  # mean_npy: "./ckpts/c3d_crop_mean_2d.npy" # shape [h, w, s*c]
+  mean_npy: "./ckpts/c3d_mean_caffe.npy" # from facebook/C3D-v1.0
+  raw_size: [128, 171, 48] # color image
+  example_size: [112, 112, 48] # last dimension: color_channel * seq_len
+  seq_len: 16 # num of frames
+
+# sharing hyperparameters
+batch_size: 32, # real_batch_size: batch_size / num_gpus / iter_size
+iter_size: 1 # apply grads per iter_size inputs and that counts as 1 iteration.
+
+# num of gpus when multi-gpus solver runs
+gpus: [0, 1, 2, 3]
+# iterations per summary for tensorboard
+step_per_summary: 100
+# iterations per saving ckpt
+step_per_ckpt: 1000
+# optimizer
+optimizer:
+  name: "Momentum"
+  args:
+    momentum: 0.9
+# decay factor for learning_rate and weight decay
+decay_factor: 0.1
+# Directory where to read train checkpoints
+ckpt_dir: "/tmp/c3d_rgb_train"
+
+# train info
+"@train":
+  # content: path + label_id
+  data_path: "./data/ucf_101/trainlist01.json"
+  initial_learning_rate: 0.0001
+  # total iterations
+  max_steps: 20000
+  # learning rate and weight decay decrease
+  num_steps_per_decay: 5000
+  # checkpoint after train
+  dest_dir: "/tmp/c3d_rgb_train"
+  # enqueue info
+  input_queue:
+    # "FIFO" or "shuffle" queue
+    type: "FIFO"
+    capacity: 30
+    num_thread: 2
+
+# eval info
+"@eval":
+  # content: path + label_id
+  data_path: "./data/ucf_101/testlist01.json"
+  # Directory where to write event logs
+  dest_dir: "/tmp/c3d_rgb_test"
+  # How often to run the eval if run_once == false
+  eval_interval_secs: 300
+  # Number of examples to run
+  num_examples: 3400
+  # top n precision
+  top: 1
+  # Whether to run eval only once
+  run_once: false
+  batch_size: 10 # always iter_size: 1
+  gpus: [0]
+  # enqueue info
+  input_queue:
+    # "FIFO" or "shuffle" queue
+    type: "FIFO"
+    capacity: 5
+    num_thread: 1
+  # Below used for video_test.py
+  # extract frames from video with equal space
+  num_per_video: 25
+
+# model info (c3d)
+model_config:
+  # init model weights three ways:
+  # init_weights: "./ckpts/sports1m_finetuning_ucf101.model"
+  init_weights: "./ckpts/conv3d_deepnetA_sport1m_iter_1900000.hdf5"
+  dropout: 0.5
+  graph: [
+    {name: "conv1a", num_kernel: 64}
+    {name: "pool1", kernel_size: [1, 2, 2], stride: [1, 2, 2]}
+    {name: "conv2a", num_kernel: 128}
+    {name: "pool2", kernel_size: [2, 2, 2], stride: [2, 2, 2]}
+    {name: "conv3a", num_kernel: 256}
+    {name: "conv3b", num_kernel: 256}
+    {name: "pool3", kernel_size: [2, 2, 2], stride: [2, 2, 2]}
+    {name: "conv4a", num_kernel: 512}
+    {name: "conv4b", num_kernel: 512}
+    {name: "pool4", kernel_size: [2, 2, 2], stride: [2, 2, 2]}
+    {name: "conv5a", num_kernel: 512}
+    {name: "conv5b", num_kernel: 512}
+    {name: "pool5", kernel_size: [2, 2, 2], stride: [2, 2, 2]}
+    {name: "fc6", units: 4096}
+    {name: "fc7", units: 4096}
+  ]
