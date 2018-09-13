@@ -60,8 +60,8 @@ def random_fix_crop_with_multi_scale(ts, scale_ratios, new_size):
     crop_pos_lst = ['left_top', 'left_bottom',
                     'mid', 'right_top', 'right_bottom']
 
-    pp('random_fix_crop_with_multi_scale: scale_ratios %.2f, new_size %s' %
-       (scale_ratios, new_size))
+    pp('random_fix_crop_with_multi_scale: scale_ratios %s, new_size %s' %
+       (str(scale_ratios), str(new_size)))
 
     with tf.name_scope('random_fix_crop_with_multi_scale'):
         # random select from scale_ratios

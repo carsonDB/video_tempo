@@ -192,27 +192,27 @@ class Reader(Input_proto):
         # clip: uint8 -> float32
         ts = tf.to_float(raw_X)
 
-        # # subtract mean: [..., height, width, channel]
-        # ts = kits.subtract_mean(ts)
+        # subtract mean: [..., height, width, channel]
+        ts = kits.subtract_mean(ts)
 
-        # pixels scaled to [0, 1] for convenience of color_jitter
-        ts = tf.image.convert_image_dtype(ts, dtype=tf.float32)
+        # # pixels scaled to [0, 1] for convenience of color_jitter
+        # ts = tf.image.convert_image_dtype(ts, dtype=tf.float32)
 
         # random or central crop: [height, width]
         crop_size = self.example_size[-3:-1]
         if self.mode == 'train':
-            ts = kits.random_size_and_crop(ts, self.example_size[:2])
-            ts = kits.color_jitter(ts)
+            # ts = kits.random_size_and_crop(ts, self.example_size[:2])
+            # ts = kits.color_jitter(ts)
             # ts = kits.random_crop(ts, self.example_size[:2])
-            # ts = kits.random_fix_crop_with_multi_scale(ts,
-            #                                            [256, 224, 192, 168],
-            #                                            crop_size)
+            ts = kits.random_fix_crop_with_multi_scale(ts,
+                                                       [256, 224, 192, 168],
+                                                       crop_size)
             ts = kits.random_flip_left_right(ts, 0.5)
 
-            # [0, 1] -> [-1, 1]
-            ts = tf.subtract(ts, 0.5)
-            ts = tf.multiply(ts, 2.0)
-            pp('normalize [0, 1] -> [-1, 1]')
+            # # [0, 1] -> [-1, 1]
+            # ts = tf.subtract(ts, 0.5)
+            # ts = tf.multiply(ts, 2.0)
+            # pp('normalize [0, 1] -> [-1, 1]')
         elif self.mode == 'eval':
             ts = kits.crop(ts, crop_size, 'mid')
             print('eval: central crop')
