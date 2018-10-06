@@ -24,7 +24,7 @@ from inputs import video_kits as kits
 from kits import pp
 
 
-def read_rgb_randomly(frm_dir, raw_size=None, num=1):
+def read_rgb_randomly(frm_dir, raw_size=None, num=1, interval=1):
     """randomly slice from a video(consists of frames) with continuous frames
 
     Args:
@@ -41,20 +41,27 @@ def read_rgb_randomly(frm_dir, raw_size=None, num=1):
     len_video = len(frame_lst)
     re_lst = []
 
-    # random select a frame from a video
-    start_id = random.randint(0, len_video - num)
-    frm_lst = []
-    for idx in range(start_id, start_id + num):
-        frm_path = frame_lst[idx]
+    def _read_a_frame(frm_path, raw_size):
         if not os.path.exists(frm_path):
             raise ValueError('frame not exists: %s', frm_path)
         frm = cv2.imread(frm_path)
         if raw_size and frm.shape != raw_size:
             height, width, channel = raw_size
             frm = cv2.resize(frm, (width, height))
-        frm_lst.append(frm)
+        return frm
+
+    # random select frames from a video with interval
+    start_id = random.randint(0, len_video - (num-1)*interval)
+    limit_id = min(len_video, start_id + num*interval)
+    frm_lst = []
+    for idx in range(start_id, limit_id, interval):
+        frm_path = frame_lst[idx]
+        frm_lst.append(_read_a_frame(frm_path, raw_size))
+    frm_lst += [_read_a_frame(frame_lst[-1], raw_size)] * (num - len(frm_lst))
 
     clip = np.concatenate(frm_lst, axis=-1)
+    assert clip.shape[-1] == num * 3, \
+        'clip channels: %d, less than %d' % (clip.shape[-1], 3*num)
     re_lst.append(clip)
     return re_lst
 
@@ -168,6 +175,7 @@ class Reader(Input_proto):
         super(Reader, self).__init__()
         self.raw_size = self.INPUT['raw_size']
         self.seq_len = self.INPUT['seq_len']
+        self.seq_interval = self.INPUT['seq_interval']
         self.num_per_video = (FLAGS['num_per_video']
                               if 'num_per_video' in FLAGS
                               else None)
@@ -241,7 +249,7 @@ class Reader(Input_proto):
             for frm_dir, label_id in example_lst:
 
                 clips = (read_rgb_randomly(frm_dir, raw_size=self.raw_size,
-                                           num=self.seq_len)
+                                           num=self.seq_len, interval=self.seq_interval)
                          if self.mode in ['train', 'eval'] else
                          read_rgb_for_test(frm_dir, self.example_size,
                                            self.num_per_video))

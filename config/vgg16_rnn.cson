@@ -4,7 +4,7 @@
 
 # meta info
 name: "spatial_part_of_two_stream_cnn"
-model: "vgg16"
+model: "vgg16_rnn"
 # one of [debug, fast, profile]
 run_mode: "fast"
 profile_log: "./log/vgg16_rgb_timeline.json"
@@ -18,13 +18,13 @@ input:
   # input format: [height, width, channel]
   # "scaled_to": 256, # smaller side scaled to 256 with ratio unchanged
   # "mean_npy": "/home/wsy/ckpt/vgg/VGG_mean.npy"
-  raw_size: [256, 340, 3] # color image
-  example_size: [224, 224, 3] # last dimension: color_channel * seq_len
-  seq_len: 1 # num of frames
-  seq_interval: 1
+  raw_size: [256, 340, 15] # color image
+  example_size: [224, 224, 15] # last dimension: color_channel * seq_len
+  seq_len: 5 # num of frames
+  seq_interval: 5
 
 # sharing hyperparameters
-batch_size: 256  # real_batch_size: batch_size / num_gpus / iter_size
+batch_size: 64  # real_batch_size: batch_size / num_gpus / iter_size
 iter_size: 2 # apply grads per iter_size inputs and that counts as 1 iteration.
 
 # num of gpus when multi-gpus solver runs
@@ -70,9 +70,9 @@ ckpt_dir: "/tmp/vgg16_rgb_train"
   # Directory where to write event logs
   dest_dir: "/tmp/vgg16_rgb_test"
   # How often to run the eval if run_once == false
-  eval_interval_secs: 300
+  eval_interval_secs: 500
   # Number of examples to run
-  num_examples: 3400
+  num_examples: 6000
   # top n precision
   top: 1
   # Whether to run eval only once
@@ -93,4 +93,6 @@ model_config:
   # init model weights several ways (ckpt, npy, hdf5):
   # init_weights: "./ckpts/vgg16_action_rgb_pretrain_v2.npy"
   init_weights: "./ckpts/vgg_16.ckpt"
+  num_step: 5
+  feedback: true
   dropout: 0.9
